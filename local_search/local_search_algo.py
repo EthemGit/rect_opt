@@ -10,4 +10,9 @@ class LocalSearchAlgo(OptimizationAlgo):
     def solve(initialBadSolution):
         # repeatedly generates neighbors via NeighborGenerator
         # accepts better neighbors
+        
+        - bekommt schlechte Lösung
+        - was ist nächster besserer Nachbar
+        - schlussbedingungn: kein besserer Nachbar
+        - return solution an main
     """

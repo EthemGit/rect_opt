@@ -9,6 +9,12 @@ class GreedyAlgo(OptimizationAlgo):
     """
     def solve(emptySolution):
         # picks next rectangle via SelectionStrategy
-        # places rectangle in valid sport
+        # places rectangle in valid spot
+
+        - wählt nächsten rect (mit strategy)
+        - platziert next rect
+        - bis alle rects platziert
+        - return solution an main 
+
     """
 
