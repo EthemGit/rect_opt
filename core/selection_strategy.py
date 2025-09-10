@@ -6,12 +6,12 @@
 
 from abc import ABC
 
+
 class SelectionStrategy(ABC):
 
     @abstractmethod
-    def select_next(self, rectangles_remaining, current_solution):
-        """Select and return the next rectangle to place from rectangles_remaining.
-        Must remove the selected rectangle from rectangles_remaining."""
+    def select_next(self, current_solution, problem):
+        """Select next step to perform."""
         pass
 
     def reset(self):

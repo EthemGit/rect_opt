@@ -2,6 +2,7 @@
 # calls selection_strategy
 # solve implementation picks next rectangle via SelectionStrategy, places rectangle in a valid spot. Resulting RectanglePackingSolution returned/displayed
 
+import OptimizationAlgo
 
 class GreedyAlgo(OptimizationAlgo):
     pass
@@ -11,9 +12,3 @@ class GreedyAlgo(OptimizationAlgo):
         # places rectangle in valid sport
     """
 
-
-
-"""
-class OptimizationAlgo(ABC):
-    @abstractmethod
-    def solve() """
