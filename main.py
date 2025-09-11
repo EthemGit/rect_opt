@@ -18,6 +18,7 @@
 
 
 import tkinter as tk
+import tkinter.ttk as ttk
 from rec_problem.rectangle_packing_problem import RectanglePackingProblem
 
 
@@ -93,45 +94,59 @@ class PackingGUI:
                 font=("Arial", 16, "bold"),
                 fg="green"
             )
-            success_label.pack(pady=20)
+            success_label.pack(pady=10)
 
-            # Table frame with border
-            rect_frame = tk.Frame(self.main_frame, bd=2, relief="groove", padx=10, pady=10)
-            rect_frame.pack(pady=10)
+            # ---------- Scrollable Table ----------
+            table_container = tk.Frame(self.main_frame)
+            table_container.pack(expand=True, fill="y", padx=10, pady=10)
 
-            header = tk.Label(rect_frame, text="Generated Rectangles:", font=("Arial", 16, "underline"))
-            header.grid(row=0, column=0, columnspan=3, pady=5)
+            columns = ("ID", "Width", "Length")
+            tree = ttk.Treeview(table_container, columns=columns, show="headings", height=20)
 
-            tk.Label(rect_frame, text="ID", font=self.font, borderwidth=1, relief="solid", width=10).grid(row=1, column=0, padx=1, pady=1, sticky="nsew")
-            tk.Label(rect_frame, text="Width", font=self.font, borderwidth=1, relief="solid", width=10).grid(row=1, column=1, padx=1, pady=1, sticky="nsew")
-            tk.Label(rect_frame, text="Length", font=self.font, borderwidth=1, relief="solid", width=10).grid(row=1, column=2, padx=1, pady=1, sticky="nsew")
+            # Define headings
+            tree.heading("ID", text="ID")
+            tree.heading("Width", text="Width")
+            tree.heading("Length", text="Length")
 
-            # Fill table with generated rectangles
-            for i, rect in enumerate(problem.rectangles, start=1):
-                tk.Label(rect_frame, text=str(i), font=self.font, borderwidth=1, relief="solid", width=10).grid(row=i+1, column=0, padx=1, pady=1, sticky="nsew")
-                tk.Label(rect_frame, text=str(rect.width), font=self.font, borderwidth=1, relief="solid", width=10).grid(row=i+1, column=1, padx=1, pady=1, sticky="nsew")
-                tk.Label(rect_frame, text=str(rect.length), font=self.font, borderwidth=1, relief="solid", width=10).grid(row=i+1, column=2, padx=1, pady=1, sticky="nsew")
+            # Define column widths
+            tree.column("ID", width=60, anchor="center")
+            tree.column("Width", width=60, anchor="center")
+            tree.column("Length", width=60, anchor="center")
 
-            # Show given user inputs at the bottom of the window.
+            # Vertical scrollbar
+            vsb = ttk.Scrollbar(table_container, orient="vertical", command=tree.yview)
+            tree.configure(yscrollcommand=vsb.set)
+            vsb.pack(side="right", fill="y")
+            tree.pack(side="left", fill="y", expand=True)
+
+            # Insert rectangles
+            rows = [(i, rect.width, rect.length) for i, rect in enumerate(problem.rectangles, start=1)]
+            for row in rows:
+                tree.insert("", "end", values=row)
+
+            # ---------- Bottom Section (fixed) ----------
+            bottom_frame = tk.Frame(self.main_frame, bd=1, relief="raised")
+            bottom_frame.pack(fill="x", side="bottom")
+
+            separator = tk.Frame(bottom_frame, height=2, bd=1, relief="sunken")
+            separator.pack(fill="x", padx=5, pady=5)
+
             params_label = tk.Label(
-                self.main_frame,
-                text=f"Given Parameters: \t Box Length = {box_length}, Rectangles = {rect_number}, Min Rectangle Size = {rect_min_size}, Max Rectangle Size = {rect_max_size}",
+                bottom_frame,
+                text=f"Given Parameters: Box Length = {box_length}, Rectangles = {rect_number}, Min Rectangle Size = {rect_min_size}, Max Rectangle Size = {rect_max_size}",
                 font=("Arial", 14),
                 fg="black"
             )
-            params_label.pack(side="bottom", pady=15)
-
-            # Separate parameters with horizontal line. Drawn last because of side="bottom".
-            separator = tk.Frame(self.main_frame, height=2, bd=1, relief="sunken")
-            separator.pack(side="bottom", fill="x", padx=5, pady=5)
+            params_label.pack(pady=5)
 
         except Exception as e:
-            # Show error directly in the main window
             error_label = tk.Label(self.main_frame, text=f"Error: {str(e)}", font=self.font, fg="red")
             error_label.pack(pady=10)
+
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = PackingGUI(root)
     root.mainloop()
+
