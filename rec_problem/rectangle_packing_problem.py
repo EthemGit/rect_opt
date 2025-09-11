@@ -6,7 +6,7 @@ from typing import List
 import random
 
 from core.problem import Problem
-from rectangle import Rectangle
+from rec_problem.rectangle import Rectangle
 
 class RectanglePackingProblem(Problem):
     """

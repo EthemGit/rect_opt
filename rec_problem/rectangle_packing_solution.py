@@ -4,7 +4,7 @@
 
 from typing import List
 
-import Solution
+from core.solution import Solution
 from rectangle import Rectangle
 from box import Box
 from rectangle_packing_problem import RectanglePackingProblem
@@ -25,10 +25,18 @@ from local_search.local_search_algo import LocalSearchAlgo
         greedy -> kein rect platziert
         local -> rects reudig platziert
 
-    # GUI: Boxen (leer oder reudig)
+    # GUI: Boxen (leer oder reudig) <<<------ klappt
 
     final_solution = algo.solve(initial_solution)
 
+    
+    TODO Donnerstag 11.9
+    GUI
+        params setzen
+        --> rects erstellen
+        strategy wählen
+        --> initial solution wird generiert und angezeigt
+            frage, wie ne solution angezeigt wird
 """
 
 class RectanglePackingSolution(Solution):
