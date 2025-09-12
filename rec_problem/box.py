@@ -2,11 +2,11 @@
 
 from dataclasses import dataclass, field
 from typing import Dict, Tuple
-
 from rectangle import Rectangle
+from core.item import Item
 
 @dataclass
-class Box:
+class Box(Item):
     box_length: int
     my_rects: Dict[Rectangle: Tuple[int, int]] = field(default_factory=dict) # maps contained rects to their position within the box
 

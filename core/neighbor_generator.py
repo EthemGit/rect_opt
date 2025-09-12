@@ -16,7 +16,3 @@ class NeighborGenerator(ABC):
     def reset(self):
         """Reset internal state (default: do nothing)."""
         pass
-
-    @abstractmethod
-    def get_algo_type(self):
-        pass

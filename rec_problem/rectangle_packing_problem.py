@@ -7,15 +7,16 @@ import random
 
 from core.problem import Problem
 from rec_problem.rectangle import Rectangle
+from rec_problem.rectangle_packing_solution import RectanglePackingSolution
 
 class RectanglePackingProblem(Problem):
     """
-    Erstellt zufällige Menge an Rectangles basierend auf Attributen (User-Input von GUI)
-    Speichert Box-Länge basierend auf User-Input
+    Creates random rectangles based on parameters set by user
+    Stores box length set by user 
     
-    Attribute:
-        - Box-Länge
-        - Menge von Rectangles
+    Attributes:
+        - Box length
+        - Set of rectangles
     """
 
     def __init__(
@@ -41,5 +42,27 @@ class RectanglePackingProblem(Problem):
             
             rect = Rectangle(length=length, width=width)
             self.rectangles.append(rect)
-        
 
+    # ----- GREEDY -------        
+    def empty_solution(self) -> RectanglePackingSolution:
+        """Creates initial empty solution for greedy algorithm"""
+        pass
+    
+    def items_for_greedy(self) -> list:
+        """Returns unplaced rectangles"""
+        pass
+    
+    def process_item(self, sol: RectanglePackingSolution, item: Rectangle):
+        """Selects box and places item (rect) inside it"""
+        pass
+
+    # ----- LOCAL SEARCH -----
+    def bad_solution(self) -> RectanglePackingSolution:
+        pass
+    
+    def neighbors(self, sol):
+        pass
+    
+    def evaluate(self, sol) -> float:
+        """Evaluates given solution. Needed for stop condition."""
+        pass

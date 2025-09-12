@@ -2,16 +2,15 @@
 
 from abc import ABC, abstractmethod
 
+from problem import Problem
+from solution import Solution
+
 class OptimizationAlgo(ABC):
     @abstractmethod
-    def solve(self, initialSolution):
+    def solve(self, problem: Problem, initialSolution: Solution):
         pass
 
     @abstractmethod
-    def step(currentSolution):
-        """Performs a single iteration step for debugging/GUI"""
-        pass 
-
     def reset(self):
         """Reset internal state (default: do nothing)."""
         pass

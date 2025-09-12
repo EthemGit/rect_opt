@@ -16,3 +16,14 @@ class LocalSearchAlgo(OptimizationAlgo):
         - schlussbedingungn: kein besserer Nachbar
         - return solution an main
     """
+
+    def __init__(self, neighborhood):
+        self.nb = neighborhood
+
+    def solve(self, problem, initial_solution):
+        cur = initial_solution
+        while True:
+            improved = self.nb.best_improving_neighbor(problem, cur) 
+            if improved is None: break
+            cur = improved
+        return cur

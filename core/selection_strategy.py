@@ -6,18 +6,13 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from optimization_algorithm import OptimizationAlgo
 
 @dataclass
 class SelectionStrategy(ABC):
 
     @abstractmethod
-    def select_next(self, current_solution, problem):
-        """Select next step to perform."""
-        pass
-    
-    @abstractmethod
-    def get_algo_type(self) -> OptimizationAlgo:
+    def order(self, items, problem, current_solution):
+        """Return a permutation or iterator of 'items' in the desired order."""
         pass
 
     def reset(self):
