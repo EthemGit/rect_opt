@@ -5,9 +5,9 @@
 from typing import List
 
 from core.solution import Solution
-from rectangle import Rectangle
-from box import Box
-from rectangle_packing_problem import RectanglePackingProblem
+from .rectangle import Rectangle
+from .box import Box
+from .rectangle_packing_problem import RectanglePackingProblem
 
 """
     # main pseudo code
@@ -37,7 +37,7 @@ from rectangle_packing_problem import RectanglePackingProblem
 """
 
 class RectanglePackingSolution(Solution):
-    def __init__(self, problem: RectanglePackingProblem):
+    def __init__(self, boxes, problem: RectanglePackingProblem):
         """ 
         
         Args:
@@ -45,7 +45,7 @@ class RectanglePackingSolution(Solution):
                 Used to copy attributes rects and box_length.
            """
         self.rectangles: List[Rectangle] = problem.rectangles
-        self.boxes: List[Box] = []
+        self.boxes: List[Box] = boxes
         self.box_length: int = problem.box_length        
     
     def validate(self, permitted_overlap: float):

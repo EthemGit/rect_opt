@@ -7,13 +7,10 @@ from core.selection_strategy import SelectionStrategy
 from rec_problem.rectangle import Rectangle
 from rec_problem.box import Box
 
-class SelectionStrategy2(SelectionStrategy):
+class LongestSideFirstStrategy(SelectionStrategy):
     
-    def order(self, items, problem, current_solution) -> Rectangle:
-        """Orders given rectangles"""
-        pass
-
-    def reset(self):
-        """Reset internal state (default: do nothing)."""
-        pass
+    def order(self, items) -> list:
+        """Orders given rectangles by longest side length"""
+        sorted_list = sorted( items, key= lambda r: max(r.width, r.length), reverse=True )
+        return sorted_list
 

@@ -2,7 +2,7 @@
 # calls neighbor_generator
 # solve implementation repeatedly generates neighbors via NeighborGenerator & accepts better neighbors. Resulting RectanglePackingSolution returned/displayed
 
-import OptimizationAlgo
+from core.optimization_algorithm import OptimizationAlgo
 
 class LocalSearchAlgo(OptimizationAlgo):
     pass
