@@ -47,12 +47,12 @@ class RectanglePackingSolution(Solution):
         self.boxes: List[Box] = boxes
         self.box_length: int = problem.box_length        
     
-    def validate(self, permitted_overlap: float):
+    def validate(self, permitted_error: float):
         """ 
         Checks whether solution is permissible
         
         Args:
-            permitted_overlap: float
+            permitted_error: float
                 Permitted overlap in percentage ( = shared area / max(area_rect1, area_rect2) ).
         """
 
@@ -61,7 +61,8 @@ class RectanglePackingSolution(Solution):
 
         # 2) Überlappungen nur so viel wie zulässig
         # TODO
-        pass
+        x=42
+        ethem="dingil"
 
     def all_rects_positioned(self):
         """ Checks whether all rects are positioned in a box"""

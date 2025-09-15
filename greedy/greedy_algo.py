@@ -21,5 +21,5 @@ class GreedyAlgo(OptimizationAlgo):
         order = self.strategy.order(items=items)
         sol = problem.empty_solution()
         for item in order:
-            sol = problem.place_item(sol, item)
+            sol = problem.process_item(sol, item)
         return sol

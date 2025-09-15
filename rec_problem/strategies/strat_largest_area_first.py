@@ -3,10 +3,9 @@
 # Resulting RectanglePackingSolution displayed
 
 from core.selection_strategy import SelectionStrategy
-from rec_problem.rectangle import Rectangle
-from rec_problem.box import Box
+from dataclasses import dataclass
 
-
+@dataclass
 class LargestAreaFirstStrategy(SelectionStrategy):
     
     def order(self, items) -> list:

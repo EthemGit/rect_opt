@@ -1,9 +1,14 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import math
 
 try:
     # Problem generator
     from rec_problem.rectangle_packing_problem import RectanglePackingProblem
+
+    # Algorithms
+    from greedy.greedy_algo import GreedyAlgo
+    from local_search.local_search_algo import LocalSearchAlgo
 
     # Greedy strategies
     from rec_problem.strategies.strat_largest_area_first import LargestAreaFirstStrategy
@@ -30,6 +35,7 @@ class PackingGUI:
 
         # state
         self.rectangles = []
+        self.algorithm = None
         self.primary_choice = tk.StringVar(value="")      # "greedy" or "local"
         self.secondary_choice = tk.StringVar(value="")
         self.selected_strategy_obj = None
@@ -186,7 +192,7 @@ class PackingGUI:
         choose_btn = ttk.Button(self.strategy_frame, text="Choose", command=self._on_primary_choose)
         choose_btn.grid(row=99, column=2, sticky="e", pady=(16, 0))
 
-        # If no problem yet, disable controls and show hint
+        # If rectangles not generated yet and hence no problem ==> disable controls and show hint
         if self.problem is None:
             hint = ttk.Label(self.strategy_frame, text="Generate a problem first.", foreground="#888")
             hint.grid(row=3, column=0, sticky="w", pady=(8, 0))
@@ -195,6 +201,7 @@ class PackingGUI:
             choose_btn.state(["disabled"])
 
     def _on_primary_changed(self):
+        """If you select greedy or local without pressing 'Choose' yet. """
         pass
 
     def _on_primary_choose(self):

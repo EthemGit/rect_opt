@@ -2,12 +2,9 @@
 
 from abc import ABC, abstractmethod
 
-from problem import Problem
-from solution import Solution
-
 class OptimizationAlgo(ABC):
     @abstractmethod
-    def solve(self, problem: Problem, initialSolution: Solution):
+    def solve(self, problem, initialSolution):
         pass
 
     @abstractmethod
