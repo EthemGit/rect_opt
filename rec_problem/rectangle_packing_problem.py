@@ -44,7 +44,8 @@ class RectanglePackingProblem(Problem):
             rect = Rectangle(length=length, width=width)
             self.rectangles.append(rect)
 
-    # ----- GREEDY -------        
+    # ----- GREEDY ------------------------------------------------------------------
+
     def empty_solution(self) -> RectanglePackingSolution:
         """Creates initial empty solution for greedy algorithm"""
         return RectanglePackingSolution(boxes=[], problem=self)
@@ -93,7 +94,8 @@ class RectanglePackingProblem(Problem):
         sol.boxes.append(new_box)
         return
 
-    # ----- LOCAL SEARCH -----
+    # ----- LOCAL SEARCH -----------------------------------------------------------------------
+    
     def bad_solution(self) -> RectanglePackingSolution:
         pass
     

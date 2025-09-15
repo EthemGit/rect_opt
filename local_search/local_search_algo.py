@@ -20,10 +20,11 @@ class LocalSearchAlgo(OptimizationAlgo):
     def __init__(self, neighborhood):
         self.nb = neighborhood
 
-    def solve(self, problem, initial_solution):
-        cur = initial_solution
+    def solve(self, problem):
+        sol = problem.bad_solution()
         while True:
-            improved = self.nb.best_improving_neighbor(problem, cur) 
+            improved = self.nb.best_improving_neighbor(problem, sol) 
             if improved is None: break
-            cur = improved
-        return cur
+            sol = improved
+        return sol
+

@@ -5,15 +5,13 @@
 
     # User sets Strategy in GUI
     strategy = Strategy()
-    algo = strategy.get_algo()
-    initial_solution = RectSolution(algo)
-    # Konstruktor unterscheidet:
-        greedy -> kein rect platziert
-        local -> rects reudig platziert
-
-    # GUI: Boxen (leer oder reudig)
-
+    if strategy==largest_area or strategy==largest_side:
+        algo = greedy(strategy)
+    if strategy==geometric or strategy==overlap or strategy==rule_based:
+        algo = local_search(strategy)
     final_solution = algo.solve(initial_solution)
+
+
 """
 
 

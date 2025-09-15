@@ -7,7 +7,6 @@ from typing import List
 from core.solution import Solution
 from .rectangle import Rectangle
 from .box import Box
-from .rectangle_packing_problem import RectanglePackingProblem
 
 """
     # main pseudo code
@@ -37,7 +36,7 @@ from .rectangle_packing_problem import RectanglePackingProblem
 """
 
 class RectanglePackingSolution(Solution):
-    def __init__(self, boxes, problem: RectanglePackingProblem):
+    def __init__(self, boxes, problem):
         """ 
         
         Args:

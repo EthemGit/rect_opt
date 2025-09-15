@@ -16,10 +16,10 @@ class GreedyAlgo(OptimizationAlgo):
     def __init__ (self, selection_strategy: SelectionStrategy):
         self.strategy = selection_strategy
 
-    def solve(self, problem, empty_solution):
+    def solve(self, problem):
         items = problem.items_for_greedy()
         order = self.strategy.order(items=items)
-        sol = empty_solution
+        sol = problem.empty_solution()
         for item in order:
             sol = problem.place_item(sol, item)
         return sol

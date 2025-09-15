@@ -1,7 +1,7 @@
 # repräsentiert eine Box. Hat Rectangles als Attribute
 
 from typing import Dict, Tuple
-from rectangle import Rectangle
+from rec_problem.rectangle import Rectangle
 from core.item import Item
 
 class Box(Item):
