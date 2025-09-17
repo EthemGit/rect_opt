@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from core.item import Item
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class Rectangle(Item):
     length: int
     width: int

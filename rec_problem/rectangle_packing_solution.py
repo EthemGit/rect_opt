@@ -44,6 +44,7 @@ class RectanglePackingSolution(Solution):
                 Used to copy attributes rects and box_length.
            """
         self.rectangles: List[Rectangle] = problem.rectangles
+        self.problem = problem
         self.boxes: List[Box] = boxes
         self.box_length: int = problem.box_length        
     
@@ -74,7 +75,7 @@ class RectanglePackingSolution(Solution):
 
     def clone(self):
         """ Creates an identical solution"""
-        copy = RectanglePackingSolution(box_length=self.box_length, rects=self.rectangles)
+        copy = RectanglePackingSolution(boxes=self.boxes, problem=self.problem)
         copy.boxes = self.boxes
         return copy
     

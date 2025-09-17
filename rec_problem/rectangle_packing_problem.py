@@ -54,32 +54,37 @@ class RectanglePackingProblem(Problem):
         """Returns unplaced rectangles"""
         return self.rectangles
     
-    def process_item(self, sol: RectanglePackingSolution, item: Rectangle) -> None:
+    def process_item(self, sol: RectanglePackingSolution, item: Rectangle):
         """
-        Selects a box and places item (rect) inside it
+        Creates a copy of the solution.
+        Selects or creates a box and places item (rect) inside it
         called by GreedyAlgo.solve()
 
         Attributes:
             sol: RectanglePackingSolution
-                Solution that is modified by sorting into a box. 
+                Solution that is copied and modified by sorting into a box. 
             item: Rectangle
                 The item we want to place.
+        
+        Returns
+            New solution (modified copy of given parameter sol)
         """
 
         length = item.length
         width = item.width
 
         item_rot = Rectangle(length=width, width=length)
+        box_length = self.box_length
 
-        for box in sol.boxes:
+        new_sol = sol.clone()
+
+        for box in new_sol.boxes:
             # check if there is a gap that fits the given rect or its rotation
-            box_length = box.box_length
-            
             for y in range(box_length):
                 for x in range(box_length):
                     if box.rect_fits_here(coordinates=(x, y), rect=item):
                         box.insert_rect(rect=item, coordinates=(x, y))
-                        return
+                        return new_sol
                     if box.rect_fits_here(coordinates=(x, y), rect=item_rot):
                         # rotate rect before positioning it
                         new_length = width
@@ -87,21 +92,21 @@ class RectanglePackingProblem(Problem):
                         item.width = new_width
                         item.length = new_length
                         box.insert_rect(rect=item, coordinates=(x, y))
-                        return
+                        return new_sol
         # Create new box if we cannot place rect in existing box
         new_box = Box(box_length)
         new_box.insert_rect(rect=item)
-        sol.boxes.append(new_box)
-        return
+        new_sol.boxes.append(new_box)
+        return new_sol
 
     # ----- LOCAL SEARCH -----------------------------------------------------------------------
     
-    def bad_solution(self) -> RectanglePackingSolution:
+    def bad_solution(self):
         pass
     
     def neighbors(self, sol):
         pass
     
-    def evaluate(self, sol) -> float:
+    def evaluate(self, sol) -> float :
         """Evaluates given solution. Needed for stop condition."""
-        pass
+        return 5.0

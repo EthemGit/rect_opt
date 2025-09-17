@@ -35,7 +35,7 @@ class Box(Item):
 
         # Insert rect
         rect.is_positioned = True
-        self.my_rects[rect] = Tuple(posX, posY)
+        self.my_rects[rect] = (posX, posY)
 
     def remove_rect(self, rect) -> None:
         """Removes given rect from this box."""
