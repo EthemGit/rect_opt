@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from typing import Union
 
 
 # Problem generator
@@ -43,8 +42,8 @@ class PackingGUI:
         self.strategy_height_ratio = 0.40
         self._solutions = None       # list of solutions from solve()
         self.current_solution = None # last rendered solution
-        self.solution_window = Union[tk.Toplevel, None]
-        self.solution_canvas = Union[tk.Canvas, None]
+        self.solution_window = None
+        self.solution_canvas = None
         self.solution_header_var = tk.StringVar(value="Boxes: —")  # header text for solution popup
         self._zoom = 1.4            # start slightly zoomed-in
         self.MIN_CELL = 200         # minimum pixel size per box cell

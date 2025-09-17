@@ -50,11 +50,11 @@ class RectanglePackingProblem(Problem):
         """Creates initial empty solution for greedy algorithm"""
         return RectanglePackingSolution(boxes=[], problem=self)
     
-    def items_for_greedy(self) -> list:
+    def items_for_greedy(self) -> List:
         """Returns unplaced rectangles"""
         return self.rectangles
     
-    def process_item(self, sol: RectanglePackingSolution, item: Rectangle):
+    def process_item(self, sol: RectanglePackingSolution, item: Rectangle) -> RectanglePackingSolution:
         """
         Creates a copy of the solution.
         Selects or creates a box and places item (rect) inside it
@@ -101,10 +101,10 @@ class RectanglePackingProblem(Problem):
 
     # ----- LOCAL SEARCH -----------------------------------------------------------------------
     
-    def bad_solution(self):
+    def bad_solution(self) -> RectanglePackingSolution:
         pass
     
-    def neighbors(self, sol):
+    def neighbors(self, sol: RectanglePackingSolution):
         pass
     
     def evaluate(self, sol) -> float :
