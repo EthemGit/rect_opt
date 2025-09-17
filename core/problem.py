@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 
 
 class Problem(ABC):
-    pass
 
     # ----- GREEDY -------        
     @abstractmethod

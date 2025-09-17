@@ -5,7 +5,6 @@
 from core.optimization_algorithm import OptimizationAlgo
 
 class LocalSearchAlgo(OptimizationAlgo):
-    pass
     """
     def solve(initialBadSolution):
         # repeatedly generates neighbors via NeighborGenerator
@@ -22,9 +21,11 @@ class LocalSearchAlgo(OptimizationAlgo):
 
     def solve(self, problem):
         sol = problem.bad_solution()
+        sols = []
+        sols.append(sol)
         while True:
-            improved = self.nb.best_improving_neighbor(problem, sol) 
+            improved = self.nb.best_improving_neighbor(problem, sols[-1]) 
             if improved is None: break
-            sol = improved
-        return sol
+            sols.append(improved)
+        return sols
 
