@@ -7,6 +7,7 @@ from typing import List
 from core.solution import Solution
 from .rectangle import Rectangle
 from .box import Box
+import copy
 
 """
     # main pseudo code
@@ -75,8 +76,7 @@ class RectanglePackingSolution(Solution):
 
     def clone(self):
         """ Creates an identical solution"""
-        copy = RectanglePackingSolution(boxes=self.boxes, problem=self.problem)
-        copy.boxes = self.boxes
-        return copy
+        copy_sol = copy.deepcopy(self)
+        return copy_sol
     
 

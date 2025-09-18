@@ -20,7 +20,6 @@ from rec_problem.neighborhoods.partial_overlap_neighbor import *
 from rec_problem.neighborhoods.rule_based_neighbor import *
 """
 
-
 class PackingGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -41,6 +40,7 @@ class PackingGUI:
         self.problem = None
         self.strategy_height_ratio = 0.40
         self._solutions = None       # list of solutions from solve()
+        self._sol_index = 0          # index of currently shown solution
         self.current_solution = None # last rendered solution
         self.solution_window = None
         self.solution_canvas = None
@@ -302,8 +302,8 @@ class PackingGUI:
                 messagebox.showwarning("Empty result", "The algorithm returned no solutions.")
                 return
 
-            # Show the final state
-            self._show_final_solution()
+            # Show the starting solution at index 0
+            self._show_solution_at(0)
 
         except Exception as e:
             messagebox.showerror("Error running Greedy", str(e))
@@ -324,7 +324,8 @@ class PackingGUI:
         messagebox.showinfo("Neighborhood Selected", f"Local Search with {self.selected_strategy_obj}")
 
 
-    # ---------------- Solution rendering ----------------
+    # ---------------- Solution rendering ---------------------------------------------------------
+    
     def _render_solution(self, solution):
         """Draw the solution on the (vertically scrollable) canvas with a fixed min cell size."""
         if not getattr(self, "solution_canvas", None):
@@ -450,6 +451,30 @@ class PackingGUI:
         can.grid(row=1, column=0, sticky="nsew")
         vbar.grid(row=1, column=1, sticky="ns")
 
+        # --- Navigation toolbar (Prev / Next + Zoom) ---
+        toolbar = ttk.Frame(outer, padding=(8, 6))
+        toolbar.grid(row=2, column=0, columnspan=2, sticky="ew")
+        toolbar.columnconfigure(0, weight=0)
+        toolbar.columnconfigure(1, weight=0)
+        toolbar.columnconfigure(2, weight=1)  # spacer
+        toolbar.columnconfigure(3, weight=0)
+        toolbar.columnconfigure(4, weight=0)
+
+        self.btn_prev = ttk.Button(toolbar, text="◀ Prev",
+                                command=lambda: self._show_solution_at(self._sol_index - 1))
+        self.btn_prev.grid(row=0, column=0, padx=(0, 6))
+
+        self.btn_next = ttk.Button(toolbar, text="Next ▶",
+                                command=lambda: self._show_solution_at(self._sol_index + 1))
+        self.btn_next.grid(row=0, column=1, padx=(0, 12))
+
+        # Zoom buttons
+        ttk.Button(toolbar, text="Zoom -", command=lambda: self._zoom_change(1/1.15)).grid(row=0, column=3, padx=6)
+        ttk.Button(toolbar, text="Zoom +", command=lambda: self._zoom_change(1.15)).grid(row=0, column=4, padx=6)
+
+        # Make sure button states reflect current position
+        self._update_nav_buttons()
+
         # Vertical mouse wheel
         def _on_wheel(e):
             can.yview_scroll(int(-1*(e.delta/120)), "units")
@@ -473,6 +498,9 @@ class PackingGUI:
         win.bind_all("<Control-minus>", lambda e: self._zoom_change(1/1.15))
         win.bind_all("<Control-Key-0>", lambda e: self._zoom_reset())
 
+        win.bind_all("<Right>", lambda e: self._show_solution_at(self._sol_index + 1))
+        win.bind_all("<Left>",  lambda e: self._show_solution_at(self._sol_index - 1))
+
         self.solution_window = win
         self.solution_canvas = can
 
@@ -485,6 +513,49 @@ class PackingGUI:
         self._zoom = 1.4
         if self.current_solution:
             self._render_solution(self.current_solution)
+
+    def _show_solution_at(self, idx: int):
+        """Show solution at index idx (0-based) from self._solutions."""
+        if not self._solutions:
+            messagebox.showwarning("No solution", "No solution available to display.")
+            return
+
+        # clamp to bounds
+        idx = max(0, min(idx, len(self._solutions) - 1))
+        self._sol_index = idx
+        sol = self._solutions[idx]
+        self.current_solution = sol
+
+        self._ensure_solution_window()
+        self._render_solution(sol)
+
+        # Update header
+        step_txt = f"Step {idx+1}/{len(self._solutions)}"
+        try:
+            n_boxes = len(getattr(sol, "boxes", []) or [])
+        except Exception:
+            n_boxes = "—"
+        self.solution_header_var.set(f"{step_txt}  —  Boxes: {n_boxes}")
+
+        # Update Prev/Next button states
+        self._update_nav_buttons()
+
+    def _update_nav_buttons(self):
+        """Enable/disable Prev/Next depending on current index."""
+        if not getattr(self, "btn_prev", None) or not getattr(self, "btn_next", None):
+            return
+        if not self._solutions:
+            self.btn_prev.state(["disabled"])
+            self.btn_next.state(["disabled"])
+            return
+        if self._sol_index <= 0:
+            self.btn_prev.state(["disabled"])
+        else:
+            self.btn_prev.state(["!disabled"])
+        if self._sol_index >= len(self._solutions) - 1:
+            self.btn_next.state(["disabled"])
+        else:
+            self.btn_next.state(["!disabled"])
 
 
 def main():
