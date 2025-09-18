@@ -31,6 +31,15 @@ class PackingGUI:
         self.font_h2 = ("Segoe UI", 12, "bold")
         self.font = ("Segoe UI", 10)
 
+        # colors
+        # colors
+        self.color_new = "#0a7d24"
+        self.color_old = "#b8e6b8"
+        self.color_outline = "#1a73e8"
+
+        # per-step metadata
+        self._step_new_keys = None    # list[set], same length as self._solutions
+
         # state
         self.rectangles = []
         self.algorithm = None
@@ -341,6 +350,7 @@ class PackingGUI:
 
             # 2) get list of solution steps
             self._solutions = self.algorithm.solve(self.problem)
+            self._compute_step_new_sets()
 
             if not self._solutions or len(self._solutions) == 0:
                 messagebox.showwarning("Empty result", "The algorithm returned no solutions.")
@@ -369,13 +379,17 @@ class PackingGUI:
 
 
     # ---------------- Solution rendering ---------------------------------------------------------
-    
     def _render_solution(self, solution):
+        """Draw the solution on the canvas.
+        New rects in the CURRENT step are dark green; older ones are light green.
+        """
         if not getattr(self, "solution_canvas", None):
             return
+
         c: tk.Canvas = self.solution_canvas
         c.delete("all")
 
+        # --- guards / empty states ---
         if not solution:
             self.solution_header_var.set("Boxes: —")
             c.configure(scrollregion=(0, 0, c.winfo_width(), c.winfo_height()))
@@ -388,20 +402,75 @@ class PackingGUI:
             c.configure(scrollregion=(0, 0, c.winfo_width(), c.winfo_height()))
             return
 
-        # Ensure we have a final-solution-based layout lock
-        self._ensure_final_layout_lock()
+        # --- ensure we have a final-solution-based (locked) layout ---
+        # If you added `_ensure_final_layout_lock` as suggested earlier, call it:
+        if hasattr(self, "_ensure_final_layout_lock"):
+            try:
+                self._ensure_final_layout_lock()
+            except Exception:
+                pass
+
+        # Fallback: if locked values are still missing (e.g., helper not added), compute now,
+        # preferably from the FINAL solution so sizes match the last step.
+        need_lock = (
+            getattr(self, "_locked_cols", None) is None or
+            getattr(self, "_locked_cell_size", None) is None or
+            getattr(self, "_locked_scale", None) is None
+        )
 
         w = max(c.winfo_width(), 1)
-        gap = self._gap
-        title_h = self._title_h
+        gap = getattr(self, "_gap", 24)
+        title_h = getattr(self, "_title_h", 22)
 
-        # --- use locked layout ---
+        if need_lock:
+            final = None
+            try:
+                final = self._solutions[-1] if self._solutions else None
+            except Exception:
+                final = None
+
+            if final and getattr(final, "boxes", None) and getattr(final, "box_length", None):
+                n_final = len(final.boxes)
+                box_len_final = final.box_length
+                max_cols_by_min = (w - gap) // (self.MIN_CELL + gap)
+                cols = int(max(1, min(n_final, max_cols_by_min)))
+                cell_w_avail = (w - (cols + 1) * gap) / cols
+                desired = max(self.MIN_CELL, int(cell_w_avail * self._zoom))
+                cell_size = int(min(cell_w_avail, desired))
+                scale = cell_size / float(box_len_final)
+                self._locked_box_len = box_len_final
+            else:
+                # As a last resort, compute from the CURRENT step (keeps things working)
+                n_cur = len(boxes)
+                max_cols_by_min = (w - gap) // (self.MIN_CELL + gap)
+                cols = int(max(1, min(n_cur, max_cols_by_min)))
+                cell_w_avail = (w - (cols + 1) * gap) / cols
+                desired = max(self.MIN_CELL, int(cell_w_avail * self._zoom))
+                cell_size = int(min(cell_w_avail, desired))
+                scale = cell_size / float(box_len)
+
+            self._locked_cols = cols
+            self._locked_cell_size = cell_size
+            self._locked_scale = scale
+
+        # Use the locked layout for EVERY step:
         cols = self._locked_cols or 1
         cell_size = self._locked_cell_size or self.MIN_CELL
         scale = self._locked_scale or (cell_size / float(box_len))
 
-        # Draw
+        # --- draw all boxes and rects ---
         content_bottom = 0
+
+        # "new this step" set for coloring
+        new_set = None
+        if getattr(self, "_step_new_keys", None) and 0 <= self._sol_index < len(self._step_new_keys):
+            new_set = self._step_new_keys[self._sol_index]
+
+        # colors (with safe defaults if you didn't add them in __init__)
+        color_new = getattr(self, "color_new", "#0a7d24")
+        color_old = getattr(self, "color_old", "#b8e6b8")
+        color_outline = getattr(self, "color_outline", "#1a73e8")
+
         for idx, box in enumerate(boxes):
             r = idx // cols
             ccol = idx % cols
@@ -409,21 +478,27 @@ class PackingGUI:
             cell_x = int(gap + ccol * (cell_size + gap))
             cell_y = int(gap + r * (cell_size + title_h + gap))
 
+            # Box title
+            try:
+                rect_count = len((getattr(box, "my_rects", {}) or {}))
+            except Exception:
+                rect_count = "?"
             c.create_text(
                 cell_x + cell_size // 2,
                 cell_y + title_h // 2,
                 anchor="center",
-                text=f"Box {idx+1} (L={box_len}, number of rects={len((getattr(box, 'my_rects', {}) or {}))})",
+                text=f"Box {idx+1} (L={box_len}, number of rects={rect_count})",
                 font=("Segoe UI", 10, "bold")
             )
 
+            # Box boundary
             x0 = cell_x
             y0 = cell_y + title_h
             x1 = x0 + cell_size
             y1 = y0 + cell_size
-
             c.create_rectangle(x0, y0, x1, y1, outline="#333", width=2)
 
+            # Rectangles inside the box
             my_rects = getattr(box, "my_rects", {}) or {}
             items_iter = my_rects.items() if isinstance(my_rects, dict) else []
 
@@ -433,10 +508,19 @@ class PackingGUI:
                 px1 = px0 + int(getattr(rect, "width", 0) * scale)
                 py1 = py0 + int(getattr(rect, "length", 0) * scale)
 
-                c.create_rectangle(px0, py0, px1, py1, fill="lightgreen", outline="#1a73e8", width=2)
-                c.create_text(px0 + 6, py0 + 6, anchor="nw",
-                            text=f"{getattr(rect,'length','?')}×{getattr(rect,'width','?')}",
-                            font=("Segoe UI", 9))
+                # New vs old coloring
+                key = getattr(rect, "id", None)
+                if key is None:
+                    key = id(rect)  # fallback, shouldn't be needed with your dataclass
+                is_new = (new_set is not None) and (key in new_set)
+                fill_color = color_new if is_new else color_old
+
+                c.create_rectangle(px0, py0, px1, py1, fill=fill_color, outline=color_outline, width=2)
+                c.create_text(
+                    px0 + 6, py0 + 6, anchor="nw",
+                    text=f"{getattr(rect,'length','?')}×{getattr(rect,'width','?')}",
+                    font=("Segoe UI", 9)
+                )
 
             content_bottom = max(content_bottom, y1)
 
@@ -637,6 +721,32 @@ class PackingGUI:
         finally:
             self._stepbar_updating = False
 
+    def _rect_key(self, rect) -> int:
+        """Stable key for a rectangle across steps (uses Rectangle.id)."""
+        rid = getattr(rect, "id", None)
+        if rid is None:
+            # fallback
+            return id(rect)
+        return int(rid)
+
+    def _extract_keys_from_solution(self, sol) -> set[int]:
+        """All rectangle keys present in a solution (union over all boxes)."""
+        keys = set()
+        for box in (getattr(sol, "boxes", None) or []):
+            my_rects = getattr(box, "my_rects", {}) or {}
+            if isinstance(my_rects, dict):
+                for rect in my_rects.keys():
+                    keys.add(self._rect_key(rect))
+        return keys
+
+    def _compute_step_new_sets(self):
+        """For each step i: which rects are newly present vs step i-1."""
+        self._step_new_keys = []
+        prev = set()
+        for sol in (self._solutions or []):
+            cur = self._extract_keys_from_solution(sol)
+            self._step_new_keys.append(cur - prev)
+            prev = cur
 
     def _on_stepbar_drag(self, value_str):
         if self._stepbar_updating or not self._solutions:
