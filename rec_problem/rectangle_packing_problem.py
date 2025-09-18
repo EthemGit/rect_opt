@@ -37,11 +37,11 @@ class RectanglePackingProblem(Problem):
         self.rectangles: List[Rectangle] = []
 
         # create random rectangles
-        for _ in range(rect_number):
+        for idx in range(rect_number):
             length = random.randint(rect_min_size, rect_max_size)
             width = random.randint(rect_min_size, rect_max_size)
             
-            rect = Rectangle(length=length, width=width)
+            rect = Rectangle(length=length, width=width, id=idx)
             self.rectangles.append(rect)
 
     # ----- GREEDY ------------------------------------------------------------------
@@ -73,7 +73,7 @@ class RectanglePackingProblem(Problem):
         length = item.length
         width = item.width
 
-        item_rot = Rectangle(length=width, width=length)
+        item_rot = Rectangle(length=width, width=length, id=item.id)  # rotated version of rect
         box_length = self.box_length
 
         new_sol = sol.clone()
