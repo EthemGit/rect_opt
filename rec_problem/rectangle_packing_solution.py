@@ -37,17 +37,15 @@ import copy
 """
 
 class RectanglePackingSolution(Solution):
-    def __init__(self, boxes, problem):
+    def __init__(self, boxes, box_length, rectangles):
         """ 
-        
         Args:
             problem: RectanglePaackingProblem
                 Used to copy attributes rects and box_length.
            """
-        self.rectangles: List[Rectangle] = problem.rectangles
-        self.problem = problem
+        self.rectangles: List[Rectangle] = rectangles
         self.boxes: List[Box] = boxes
-        self.box_length: int = problem.box_length        
+        self.box_length: int = box_length
     
     def validate(self, permitted_error: float):
         """ 
@@ -76,7 +74,8 @@ class RectanglePackingSolution(Solution):
 
     def clone(self):
         """ Creates an identical solution"""
-        copy_sol = copy.deepcopy(self)
+        deepcopy_boxes = copy.deepcopy(self.boxes)
+        copy_sol = RectanglePackingSolution(deepcopy_boxes, self.box_length, self.rectangles)
         return copy_sol
     
 

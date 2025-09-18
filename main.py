@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import math
 
 
 # Problem generator
@@ -19,6 +20,8 @@ from rec_problem.neighborhoods.geometry_based_neighbor import *
 from rec_problem.neighborhoods.partial_overlap_neighbor import *
 from rec_problem.neighborhoods.rule_based_neighbor import *
 """
+
+START_ALGO_BUTTON_DESCRIPTION = "Run Algorithm"
 
 class PackingGUI:
     def __init__(self, root: tk.Tk):
@@ -295,7 +298,7 @@ class PackingGUI:
         ttk.Button(self.strategy_frame, text="Return", command=self._render_primary_options).grid(
             row=99, column=0, sticky="w", pady=(16, 0)
         )
-        ttk.Button(self.strategy_frame, text="Choose", command=self._on_greedy_choose).grid(
+        ttk.Button(self.strategy_frame, text=START_ALGO_BUTTON_DESCRIPTION, command=self._on_greedy_choose).grid(
             row=99, column=2, sticky="e", pady=(16, 0)
         )
 
@@ -321,7 +324,7 @@ class PackingGUI:
         ttk.Button(self.strategy_frame, text="Return", command=self._render_primary_options).grid(
             row=99, column=0, sticky="w", pady=(16, 0)
         )
-        ttk.Button(self.strategy_frame, text="Choose", command=self._on_local_choose).grid(
+        ttk.Button(self.strategy_frame, text=START_ALGO_BUTTON_DESCRIPTION, command=self._on_local_choose).grid(
             row=99, column=2, sticky="e", pady=(16, 0)
         )
 
@@ -381,7 +384,7 @@ class PackingGUI:
     # ---------------- Solution rendering ---------------------------------------------------------
     def _render_solution(self, solution):
         """Draw the solution on the canvas.
-        New rects in the CURRENT step are dark green; older ones are light green.
+        New rects in the current step are dark green; older ones are light green.
         """
         if not getattr(self, "solution_canvas", None):
             return
@@ -389,7 +392,7 @@ class PackingGUI:
         c: tk.Canvas = self.solution_canvas
         c.delete("all")
 
-        # --- guards / empty states ---
+        # guards / empty states
         if not solution:
             self.solution_header_var.set("Boxes: —")
             c.configure(scrollregion=(0, 0, c.winfo_width(), c.winfo_height()))
@@ -402,16 +405,13 @@ class PackingGUI:
             c.configure(scrollregion=(0, 0, c.winfo_width(), c.winfo_height()))
             return
 
-        # --- ensure we have a final-solution-based (locked) layout ---
-        # If you added `_ensure_final_layout_lock` as suggested earlier, call it:
+        # use final layout throughout
         if hasattr(self, "_ensure_final_layout_lock"):
             try:
                 self._ensure_final_layout_lock()
             except Exception:
                 pass
 
-        # Fallback: if locked values are still missing (e.g., helper not added), compute now,
-        # preferably from the FINAL solution so sizes match the last step.
         need_lock = (
             getattr(self, "_locked_cols", None) is None or
             getattr(self, "_locked_cell_size", None) is None or
@@ -440,7 +440,7 @@ class PackingGUI:
                 scale = cell_size / float(box_len_final)
                 self._locked_box_len = box_len_final
             else:
-                # As a last resort, compute from the CURRENT step (keeps things working)
+                # As a last resort, compute from the CURRENT step
                 n_cur = len(boxes)
                 max_cols_by_min = (w - gap) // (self.MIN_CELL + gap)
                 cols = int(max(1, min(n_cur, max_cols_by_min)))
@@ -453,15 +453,14 @@ class PackingGUI:
             self._locked_cell_size = cell_size
             self._locked_scale = scale
 
-        # Use the locked layout for EVERY step:
+        # Use the locked layout for every step:
         cols = self._locked_cols or 1
         cell_size = self._locked_cell_size or self.MIN_CELL
         scale = self._locked_scale or (cell_size / float(box_len))
 
-        # --- draw all boxes and rects ---
+        # draw all boxes and rects
         content_bottom = 0
 
-        # "new this step" set for coloring
         new_set = None
         if getattr(self, "_step_new_keys", None) and 0 <= self._sol_index < len(self._step_new_keys):
             new_set = self._step_new_keys[self._sol_index]
@@ -665,7 +664,6 @@ class PackingGUI:
             self._ensure_final_layout_lock(force=True)
             self._render_solution(self.current_solution)
 
-
     def _show_solution_at(self, idx: int):
         if not self._solutions:
             messagebox.showwarning("No solution", "No solution available to display.")
@@ -689,7 +687,7 @@ class PackingGUI:
         self.solution_header_var.set(f"{step_txt}  —  Boxes: {n_boxes}")
 
         self._update_nav_buttons()
-        self._sync_stepbar() # keep the step bar in sync
+        self._sync_stepbar() # step bar in sync
 
     def _update_nav_buttons(self):
         """Enable/disable Prev/Next depending on current index."""
@@ -759,14 +757,11 @@ class PackingGUI:
             f"Step {idx+1}/{len(self._solutions)} — release to jump"
         )
 
-
     def _on_stepbar_release(self, _event):
         if not self._solutions:
             return
         idx = int(round(float(self.stepbar.get())))
         self._show_solution_at(idx)
-
-
 
 
 def main():

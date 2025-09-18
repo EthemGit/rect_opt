@@ -48,7 +48,7 @@ class RectanglePackingProblem(Problem):
 
     def empty_solution(self) -> RectanglePackingSolution:
         """Creates initial empty solution for greedy algorithm"""
-        return RectanglePackingSolution(boxes=[], problem=self)
+        return RectanglePackingSolution(boxes=[], box_length=self.box_length, rectangles=self.rectangles)
     
     def items_for_greedy(self) -> List:
         """Returns unplaced rectangles"""
@@ -82,17 +82,18 @@ class RectanglePackingProblem(Problem):
             # check if there is a gap that fits the given rect or its rotation
             for y in range(box_length):
                 for x in range(box_length):
-                    if box.rect_fits_here(coordinates=(x, y), rect=item):
-                        box.insert_rect(rect=item, coordinates=(x, y))
-                        return new_sol
-                    if box.rect_fits_here(coordinates=(x, y), rect=item_rot):
-                        # rotate rect before positioning it
-                        new_length = width
-                        new_width = length
-                        item.width = new_width
-                        item.length = new_length
-                        box.insert_rect(rect=item, coordinates=(x, y))
-                        return new_sol
+                    if (x,y) in box.empty_coordinates:
+                        if box.rect_fits_here(coordinates=(x, y), rect=item):
+                            box.insert_rect(rect=item, coordinates=(x, y))
+                            return new_sol
+                        if box.rect_fits_here(coordinates=(x, y), rect=item_rot):
+                            # rotate rect before positioning it
+                            new_length = width
+                            new_width = length
+                            item.width = new_width
+                            item.length = new_length
+                            box.insert_rect(rect=item, coordinates=(x, y))
+                            return new_sol
         # Create new box if we cannot place rect in existing box
         new_box = Box(box_length)
         new_box.insert_rect(rect=item)

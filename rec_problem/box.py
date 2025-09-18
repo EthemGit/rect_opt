@@ -1,6 +1,6 @@
 # repräsentiert eine Box. Hat Rectangles als Attribute
 
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Set
 from rec_problem.rectangle import Rectangle
 from core.item import Item
 
@@ -11,9 +11,9 @@ class Box(Item):
         # Maps each contained rect to coordinates of its upper left corner within box
         self.my_rects: Dict[Rectangle, Tuple[int, int]] = {}
 
-        # Maps each field to number of rects occupying it
-        self.field_occupation: Dict[Tuple[int, int], int] = {
-            (x, y): 0 for x in range(box_length) for y in range(box_length)
+        # Set of all empty position (at start: all)
+        self.empty_coordinates: Set = {
+            (x,y) for x in range(box_length) for y in range(box_length) 
         }
 
     def insert_rect(self, rect: Rectangle, coordinates=(0,0)) -> None:
@@ -27,11 +27,11 @@ class Box(Item):
             raise ValueError(
                 f"Rectangle with size ({rect.length}, {rect.width}) does not fit inside box of length {self.box_length} at ({posX}, {posY}) "
             )
-        
-        # Update map of occupied fields
+                
+        # Update set of empty coordinates
         for x in range(rect.width):
             for y in range(rect.length):
-                self.field_occupation[(x+posX, y+posY)] += 1
+                self.empty_coordinates.remove((x+posX, y+posY))
 
         # Insert rect
         rect.is_positioned = True
@@ -46,14 +46,10 @@ class Box(Item):
             
         posX, posY = pos
         
-        # update map of occupied fields
         for x in range(rect.width):
             for y in range(rect.length):
-                if (self.field_occupation[(x+posX, y+posY)] > 0):
-                    self.field_occupation[(x+posX, y+posY)] -= 1
-                else:
-                    raise ValueError("Mysteriously a rect exists here but field occupation = 0")
-        
+                self.empty_coordinates.add((x+posX, y+posY))
+
         # remove rect
         rect.is_positioned = False
         del self.my_rects[rect]
@@ -63,7 +59,7 @@ class Box(Item):
         return self.my_rects[rect]
     
     def rect_fits_here(self, coordinates: Tuple[int, int], rect) -> bool:
-            """ Checks whether given rect fits at specific coordinates in given box.
+            """ Checks whether whole of given rect fits at specific coordinates in given box.
             
             Attributes:
                 coordinates: Tuple(int, int)
@@ -84,7 +80,7 @@ class Box(Item):
             for dx in range(rect.width):
                 for dy in range(rect.length):
                     cell = (x+dx, y+dy)
-                    if self.field_occupation.get(cell, 0) != 0:
+                    if not cell in self.empty_coordinates:
                         return False
 
             return True
