@@ -42,6 +42,10 @@ class PackingGUI:
         self._solutions = None       # list of solutions from solve()
         self._sol_index = 0          # index of currently shown solution
         self.current_solution = None # last rendered solution
+        self.stepbar = None                # ttk.Scale for stepping through solutions
+        self.step_var = tk.IntVar(value=0)
+        self._stepbar_updating = False     # guard to avoid feedback loops
+
         self.solution_window = None
         self.solution_canvas = None
         self.solution_header_var = tk.StringVar(value="Boxes: —")  # header text for solution popup
@@ -53,6 +57,16 @@ class PackingGUI:
         self.root.columnconfigure(0, weight=3, minsize=700)
         self.root.columnconfigure(1, weight=2, minsize=380)
 
+        # layout lock (final-solution-based)
+        self._locked_cols = None
+        self._locked_cell_size = None
+        self._locked_scale = None
+        self._locked_box_len = None
+
+        # draw constants (so we reuse the same numbers everywhere)
+        self._gap = 24
+        self._title_h = 22
+
         # LEFT SIDE: Controls + Table
         self._build_left_side()
 
@@ -60,6 +74,36 @@ class PackingGUI:
         self._build_strategy_frame()
 
         self.root.bind("<Configure>", self._on_resize)
+
+    def _ensure_final_layout_lock(self, force: bool = False):
+        """Lock grid cols/size/scale to the *final* solution so size is stable across steps."""
+        if not self._solutions or not self.solution_canvas:
+            return
+        final_sol = self._solutions[-1]
+        boxes_final = getattr(final_sol, "boxes", None) or []
+        box_len_final = getattr(final_sol, "box_length", None)
+        if not boxes_final or not box_len_final:
+            return
+        if (not force) and (self._locked_cols is not None):
+            return
+
+        c = self.solution_canvas
+        w = max(c.winfo_width(), 1)
+        gap = self._gap
+
+        n_final = len(boxes_final)
+        max_cols_by_min = (w - gap) // (self.MIN_CELL + gap)
+        cols = int(max(1, min(n_final, max_cols_by_min)))
+
+        cell_w_avail = (w - (cols + 1) * gap) / cols
+        desired = max(self.MIN_CELL, int(cell_w_avail * self._zoom))
+        cell_size = int(min(cell_w_avail, desired))
+        scale = cell_size / float(box_len_final)
+
+        self._locked_cols = cols
+        self._locked_cell_size = cell_size
+        self._locked_scale = scale
+        self._locked_box_len = box_len_final
 
 
     # ---------------- Left side: Problem Generation ----------------
@@ -327,7 +371,6 @@ class PackingGUI:
     # ---------------- Solution rendering ---------------------------------------------------------
     
     def _render_solution(self, solution):
-        """Draw the solution on the (vertically scrollable) canvas with a fixed min cell size."""
         if not getattr(self, "solution_canvas", None):
             return
         c: tk.Canvas = self.solution_canvas
@@ -345,27 +388,17 @@ class PackingGUI:
             c.configure(scrollregion=(0, 0, c.winfo_width(), c.winfo_height()))
             return
 
-        n = len(boxes)
-        self.solution_header_var.set(f"Boxes: {n}")
+        # Ensure we have a final-solution-based layout lock
+        self._ensure_final_layout_lock()
 
         w = max(c.winfo_width(), 1)
-        h = max(c.winfo_height(), 1)
+        gap = self._gap
+        title_h = self._title_h
 
-        gap = 24
-        title_h = 22
-
-        # Column number depends on MIN_CELL
-        max_cols_by_min = (w - gap) // (self.MIN_CELL + gap)
-        cols = int(max(1, min(n, max_cols_by_min)))
-        rows = (n + cols - 1) // cols
-
-        # Per-cell width
-        cell_w_avail = (w - (cols + 1) * gap) / cols
-
-        # Desired cell size
-        desired = max(self.MIN_CELL, int(cell_w_avail * self._zoom))
-        cell_size = int(min(cell_w_avail, desired))
-        scale = cell_size / float(box_len)
+        # --- use locked layout ---
+        cols = self._locked_cols or 1
+        cell_size = self._locked_cell_size or self.MIN_CELL
+        scale = self._locked_scale or (cell_size / float(box_len))
 
         # Draw
         content_bottom = 0
@@ -376,12 +409,11 @@ class PackingGUI:
             cell_x = int(gap + ccol * (cell_size + gap))
             cell_y = int(gap + r * (cell_size + title_h + gap))
 
-            # Title for box
             c.create_text(
                 cell_x + cell_size // 2,
                 cell_y + title_h // 2,
                 anchor="center",
-                text=f"Box {idx+1} (L={box_len}, number of rects={len(getattr(box, 'my_rects', {}) )})",
+                text=f"Box {idx+1} (L={box_len}, number of rects={len((getattr(box, 'my_rects', {}) or {}))})",
                 font=("Segoe UI", 10, "bold")
             )
 
@@ -392,8 +424,10 @@ class PackingGUI:
 
             c.create_rectangle(x0, y0, x1, y1, outline="#333", width=2)
 
-            my_rects = getattr(box, "my_rects", {})
-            for rect, (rx, ry) in my_rects.items():
+            my_rects = getattr(box, "my_rects", {}) or {}
+            items_iter = my_rects.items() if isinstance(my_rects, dict) else []
+
+            for rect, (rx, ry) in items_iter:
                 px0 = x0 + int(rx * scale)
                 py0 = y0 + int(ry * scale)
                 px1 = px0 + int(getattr(rect, "width", 0) * scale)
@@ -484,15 +518,24 @@ class PackingGUI:
 
         def _on_close():
             try:
+                win.unbind_all("<Right>")
+                win.unbind_all("<Left>")
+                win.unbind_all("<Control-plus>")
+                win.unbind_all("<Control-minus>")
+                win.unbind_all("<Control-Key-0>")
+                self.solution_window = None
                 self.solution_canvas = None
+                self.stepbar = None
+                self.btn_prev = None
+                self.btn_next = None
             finally:
                 win.destroy()
         win.protocol("WM_DELETE_WINDOW", _on_close)
 
-        # Re-render on resize
-        can.bind("<Configure>",
-                lambda e: self._render_solution(self.current_solution) if getattr(self, "current_solution", None) else None)
-
+        can.bind("<Configure>", lambda e: (
+            self._ensure_final_layout_lock(force=True),
+            self._render_solution(self.current_solution) if getattr(self, "current_solution", None) else None
+        ))
         # Zoom keys
         win.bind_all("<Control-plus>", lambda e: self._zoom_change(1.15))
         win.bind_all("<Control-minus>", lambda e: self._zoom_change(1/1.15))
@@ -504,29 +547,53 @@ class PackingGUI:
         self.solution_window = win
         self.solution_canvas = can
 
+        # --- Step bar ---
+        if not self.stepbar:
+            self.stepbar = tk.Scale(
+                toolbar,
+                from_=0,
+                to=0,                 
+                orient="horizontal",
+                showvalue=False,
+                resolution=1,         
+                variable=self.step_var,
+                command=self._on_stepbar_drag,
+            )
+            self.stepbar.grid(row=0, column=2, sticky="ew", padx=(6, 6))
+            self.stepbar.bind("<ButtonRelease-1>", self._on_stepbar_release)
+
+        toolbar.columnconfigure(2, weight=1)
+
+        win.update_idletasks()
+
+        if self.current_solution:
+            self._render_solution(self.current_solution)
+
     def _zoom_change(self, factor: float):
         self._zoom = max(0.4, min(3.0, self._zoom * factor))
         if self.current_solution:
+            self._ensure_final_layout_lock(force=True)
             self._render_solution(self.current_solution)
 
     def _zoom_reset(self):
         self._zoom = 1.4
         if self.current_solution:
+            self._ensure_final_layout_lock(force=True)
             self._render_solution(self.current_solution)
 
+
     def _show_solution_at(self, idx: int):
-        """Show solution at index idx (0-based) from self._solutions."""
         if not self._solutions:
             messagebox.showwarning("No solution", "No solution available to display.")
             return
 
-        # clamp to bounds
         idx = max(0, min(idx, len(self._solutions) - 1))
         self._sol_index = idx
         sol = self._solutions[idx]
         self.current_solution = sol
 
         self._ensure_solution_window()
+        self._ensure_final_layout_lock()
         self._render_solution(sol)
 
         # Update header
@@ -537,8 +604,8 @@ class PackingGUI:
             n_boxes = "—"
         self.solution_header_var.set(f"{step_txt}  —  Boxes: {n_boxes}")
 
-        # Update Prev/Next button states
         self._update_nav_buttons()
+        self._sync_stepbar() # keep the step bar in sync
 
     def _update_nav_buttons(self):
         """Enable/disable Prev/Next depending on current index."""
@@ -556,6 +623,40 @@ class PackingGUI:
             self.btn_next.state(["disabled"])
         else:
             self.btn_next.state(["!disabled"])
+
+    def _sync_stepbar(self):
+        if not getattr(self, "stepbar", None):
+            return
+        self._stepbar_updating = True
+        try:
+            max_idx = max(0, len(self._solutions) - 1) if self._solutions else 0
+            self.stepbar.configure(to=max_idx)
+            self.step_var.set(self._sol_index)
+            # tk.Scale uses configure(state=...)
+            self.stepbar.configure(state="disabled" if max_idx == 0 else "normal")
+        finally:
+            self._stepbar_updating = False
+
+
+    def _on_stepbar_drag(self, value_str):
+        if self._stepbar_updating or not self._solutions:
+            return
+        try:
+            idx = int(round(float(value_str)))
+        except ValueError:
+            return
+        self.solution_header_var.set(
+            f"Step {idx+1}/{len(self._solutions)} — release to jump"
+        )
+
+
+    def _on_stepbar_release(self, _event):
+        if not self._solutions:
+            return
+        idx = int(round(float(self.stepbar.get())))
+        self._show_solution_at(idx)
+
+
 
 
 def main():

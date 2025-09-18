@@ -11,6 +11,6 @@ from dataclasses import dataclass
 class SelectionStrategy(ABC):
 
     @abstractmethod
-    def order(self, items): # -> list
+    def order(self, items):
         """Return a permutation or iterator of 'items' in the desired order."""
         pass
