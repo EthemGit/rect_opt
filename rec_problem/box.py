@@ -1,6 +1,6 @@
 # repräsentiert eine Box. Hat Rectangles als Attribute
 
-from typing import Dict, Tuple, Set
+from typing import Dict, Tuple, Set, List
 from rec_problem.rectangle import Rectangle
 from core.item import Item
 
@@ -85,3 +85,24 @@ class Box(Item):
 
             return True
     
+    # get all rects in this box
+    def get_rects(self) -> List[Rectangle]:
+        return list(self.my_rects.keys())
+
+    # compute anchor positions for placing new rects
+    def get_anchor_positions(self) -> Set[Tuple[int, int]]:
+        """Return potential 'anchor' positions for trying new placements.
+        Anchors are: (0,0) and positions aligned to existing rects (right/below)."""
+        anchors = {(0, 0)}
+        for rect, (x, y) in self.my_rects.items():
+            anchors.add((x + rect.width, y))      # right edge
+            anchors.add((x, y + rect.length))     # bottom edge
+        return anchors
+
+    # lightweight clone (instead of deepcopy)
+    def clone(self) -> "Box":
+        new_box = Box(self.box_length)
+        # Copy occupied rects
+        new_box.my_rects = self.my_rects.copy()
+        new_box.empty_coordinates = self.empty_coordinates.copy()
+        return new_box

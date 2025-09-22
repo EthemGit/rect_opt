@@ -14,12 +14,10 @@ from local_search.local_search_algo import LocalSearchAlgo
 from rec_problem.strategies.strat_largest_area_first import LargestAreaFirstStrategy
 from rec_problem.strategies.strat_longest_side_first import LongestSideFirstStrategy
 
-"""
 # Local search neighborhoods
-from rec_problem.neighborhoods.geometry_based_neighbor import *
-from rec_problem.neighborhoods.partial_overlap_neighbor import *
-from rec_problem.neighborhoods.rule_based_neighbor import *
-"""
+from rec_problem.neighborhoods.geometry_based_neighbor import GeometryBasedNeighborhood
+from rec_problem.neighborhoods.partial_overlap_neighbor import PartialOverlapNeighborhood
+from rec_problem.neighborhoods.rule_based_neighbor import RuleBasedNeighborhood
 
 START_ALGO_BUTTON_DESCRIPTION = "Run Algorithm"
 
@@ -49,6 +47,7 @@ class PackingGUI:
         self.primary_choice = tk.StringVar(value="")      # "greedy" or "local"
         self.secondary_choice = tk.StringVar(value="")
         self.selected_strategy_obj = None
+        self.selected_neighborhood_obj = None
         self.problem = None
         self.strategy_height_ratio = 0.40
         self._solutions = None       # list of solutions from solve()
@@ -366,19 +365,40 @@ class PackingGUI:
             messagebox.showerror("Error running Greedy", str(e))
 
     def _on_local_choose(self):
+        if self.problem is None:
+            messagebox.showwarning("No Problem", "Please generate a problem first.")
+            return
+
         token = self.secondary_choice.get()
         if not token:
             messagebox.showwarning("Selection Required", "Please choose one Local Search neighborhood.")
             return
+        
+        if token == "geometry":
+            self.selected_neighborhood_obj = GeometryBasedNeighborhood(max_neighbors=500)
+        elif token == "partial_overlap":
+            self.selected_neighborhood_obj = PartialOverlapNeighborhood(max_neighbors=500)
+        elif token == "rule_based":
+            self.selected_neighborhood_obj = RuleBasedNeighborhood(max_neighbors=500)
+        else:
+            messagebox.showerror("Unknown Strategy", f"Unknown strategy token: {token}")
+            return            
 
-        # TODO: instantiate real neighborhoods once implemented
-        self.selected_strategy_obj = {
-            "geometry": "GeometryBasedNeighborhood",
-            "partial_overlap": "PartialOverlapNeighborhood",
-            "rule_based": "RuleBasedNeighborhood",
-        }.get(token, token)
-
-        messagebox.showinfo("Neighborhood Selected", f"Local Search with {self.selected_strategy_obj}")
+        try:
+            self.algorithm = LocalSearchAlgo(self.selected_neighborhood_obj,
+                                             max_iters=2000,
+                                             stride=1,
+                                             first_improvement=True,
+                                             max_neighbors_per_step=500)
+            self._solutions = self.algorithm.solve(self.problem)
+            self._compute_step_new_sets()
+            if not self._solutions:
+                messagebox.showwarning("Empty result", "The algorithm returned no solutions.")
+                return
+            self._show_solution_at(0)
+            
+        except Exception as e:
+            messagebox.showerror("Error running Local Search", str(e))
 
 
     # ---------------- Solution rendering ---------------------------------------------------------
