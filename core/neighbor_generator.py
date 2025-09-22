@@ -13,6 +13,6 @@ class NeighborGenerator(ABC):
         """Generate and return a list of neighboring solutions."""
         pass
 
-    def reset(self):
-        """Reset internal state (default: do nothing)."""
+    @abstractmethod
+    def best_improving_neighbor(problem, sol):
         pass

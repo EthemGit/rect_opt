@@ -3,6 +3,7 @@
 # solve implementation repeatedly generates neighbors via NeighborGenerator & accepts better neighbors. Resulting RectanglePackingSolution returned/displayed
 
 from core.optimization_algorithm import OptimizationAlgo
+import math
 
 class LocalSearchAlgo(OptimizationAlgo):
     """
@@ -21,11 +22,26 @@ class LocalSearchAlgo(OptimizationAlgo):
 
     def solve(self, problem):
         sol = problem.bad_solution()
-        sols = []
-        sols.append(sol)
+        sols = [sol]
+        
+        max_steps = 100
+        number_rects = len(sol.rectangles)
+        stride = math.ceil(number_rects / max_steps)
+        
+        idx = 0
+        
         while True:
-            improved = self.nb.best_improving_neighbor(problem, sols[-1]) 
+            improved = self.nb.best_improving_neighbor(problem, sol) 
             if improved is None: break
-            sols.append(improved)
-        return sols
 
+            if idx  % stride == 0 or len(sol.boxes) != len(improved.boxes):
+                sols.append(improved)
+
+            sol = improved
+            idx += 1
+
+        # append last solution
+        if sols[-1] is not sol:
+            sols.append(sol)
+            
+        return sols

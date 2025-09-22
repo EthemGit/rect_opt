@@ -103,11 +103,18 @@ class RectanglePackingProblem(Problem):
     # ----- LOCAL SEARCH -----------------------------------------------------------------------
     
     def bad_solution(self) -> RectanglePackingSolution:
-        pass
+        """Returns a solution where each box contains exactly 1 rect at (0,0)."""
+        boxes = []
+        for rect in self.rectangles:
+            box = Box(box_length=self.box_length)
+            box.insert_rect(rect)
+            boxes.append(box)
+
+        return RectanglePackingSolution(box_length=self.box_length, rectangles=self.rectangles, boxes=boxes)
     
     def neighbors(self, sol: RectanglePackingSolution):
         pass
     
     def evaluate(self, sol) -> float :
         """Evaluates given solution. Needed for stop condition."""
-        return 5.0
+        return len(sol.boxes)

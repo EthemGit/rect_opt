@@ -35,6 +35,7 @@ class GreedyAlgo(OptimizationAlgo):
                 sols.append(new_sol)
             sol = new_sol
 
+        # append last solution
         if sols[-1] is not sol:
             sols.append(sol)
 
