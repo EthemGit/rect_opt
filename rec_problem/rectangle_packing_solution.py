@@ -9,33 +9,6 @@ from .rectangle import Rectangle
 from .box import Box
 import copy
 
-"""
-    # main pseudo code
-    problem_params = get_problem_params_from_GUI()
-    problem = RectProblem(problem_params)
-
-    # User sets Strategy in GUI
-    strategy = Strategy()
-    algo = strategy.get_algo()
-    initial_solution = RectSolution(algo)
-    # Konstruktor unterscheidet:
-        greedy -> kein rect platziert
-        local -> rects reudig platziert
-
-    # GUI: Boxen (leer oder reudig) <<<------ klappt
-
-    final_solution = algo.solve(initial_solution)
-
-    
-    TODO Donnerstag 11.9
-    GUI
-        params setzen
-        --> rects erstellen
-        strategy wählen
-        --> initial solution wird generiert und angezeigt
-            frage, wie ne solution angezeigt wird
-"""
-
 class RectanglePackingSolution(Solution):
     def __init__(self, boxes, box_length, rectangles):
         """ 
@@ -62,7 +35,6 @@ class RectanglePackingSolution(Solution):
         # 2) Überlappungen nur so viel wie zulässig
         # TODO
         x=42
-        ethem="dingil"
 
     def all_rects_positioned(self):
         """ Checks whether all rects are positioned in a box"""

@@ -50,6 +50,9 @@ class GeometryBasedNeighborhood(NeighborGenerator):
                     pos = tgt_box.my_rects.get(rect, None)
                     if pos == (ax, ay) and tgt_idx == src_box_idx:
                         continue
+                    # skip attempts to replace a rect that is alone in its box
+                    if tgt_idx == src_box_idx and len(tgt_box.my_rects) == 1:
+                        continue
 
                     # ----- cheap feasibility pre-check (no clone) -----
                     feasible = False
@@ -58,6 +61,7 @@ class GeometryBasedNeighborhood(NeighborGenerator):
                         if tgt_box.rect_fits_here((ax, ay), rect):
                             feasible = True
                     else:  # moving within same box: candidate cells must be empty or belong to the rect itself
+
                         curx, cury = tgt_box.my_rects.get(rect)
                         # boundary quick-check
                         if ax < 0 or ay < 0 or (ax + rect.width) > tgt_box.box_length or (ay + rect.length) > tgt_box.box_length:
@@ -87,14 +91,22 @@ class GeometryBasedNeighborhood(NeighborGenerator):
                     if cloned_rect is None:
                         continue
 
+                    """ get the box where we want to insert the rect into. this has to be done here, BEFORE removing the 
+                    rect from its current box and potentially deleting empty box. if done afterwards, the index may shift
+                    which leads to hard-to-debug errors.""" 
+                    tgt_b = nb.boxes[tgt_idx]
+
                     # remove from its current box in clone
-                    for b in nb.boxes:
+                    for b in nb.boxes[:]:  # iterate over copy so we can delete
                         if cloned_rect in b.my_rects:
                             b.remove_rect(cloned_rect)
+                            if not b.my_rects:  # box became empty
+                                # delete empty box. otherwise value never decreases -> local search never progresses
+                                nb.boxes.remove(b)  
                             break
 
+
                     # insert into target box in clone
-                    tgt_b = nb.boxes[tgt_idx]
                     try:
                         tgt_b.insert_rect(cloned_rect, (ax, ay))
                     except Exception:
@@ -114,9 +126,12 @@ class GeometryBasedNeighborhood(NeighborGenerator):
                     continue
 
                 # remove from old box in cloned solution
-                for b in nb.boxes:
+                for b in nb.boxes[:]:  # iterate over copy so we can delete
                     if cloned_rect in b.my_rects:
                         b.remove_rect(cloned_rect)
+                        if not b.my_rects:  # box became empty
+                            # delete empty box. otherwise value never decreases -> local search never progresses
+                            nb.boxes.remove(b)  
                         break
 
                 # create new box, put rect at (0,0)
