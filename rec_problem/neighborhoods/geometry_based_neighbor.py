@@ -25,20 +25,10 @@ class GeometryBasedNeighborhood(NeighborGenerator):
         """
         generated = 0  # performance. to compare with max_neighbors and avoid too long runtime
 
-        # Iterate rectangles that are currently positioned
-        for rect in current_solution.rectangles:
-            # we only move rectangles that are placed (skip unplaced for now)
-            if not getattr(rect, "is_positioned", False):
-                continue
+        # Speedup A: build smarter rectangle candidates (last K boxes, largest M)
+        candidates = self._build_candidates(current_solution, K=2, M=25)
 
-            # find current box index for rect
-            src_box_idx = None
-            for i, b in enumerate(current_solution.boxes):
-                if rect in b.my_rects:
-                    src_box_idx = i
-                    break
-            if src_box_idx is None:
-                continue
+        for rect, src_box_idx in candidates:
 
             # generate move targets: all existing boxes + a new empty box
             target_boxes = list(enumerate(current_solution.boxes))  # list of (idx, box)
@@ -117,3 +107,35 @@ class GeometryBasedNeighborhood(NeighborGenerator):
                     yield nb
                     if self.max_neighbors is not None and generated >= self.max_neighbors:
                         return
+
+    # ------- helpers ------------------
+
+        # ---- Speedup patch A helper: pick largest M rects from last K boxes ----
+    def _build_candidates(self, solution, K: int = 2, M: int = 25):
+        """
+        Return a list of (rect, src_box_idx) from the last K boxes.
+        Within each such box, take the M largest rectangles (by area).
+        """
+        boxes = solution.boxes
+        if not boxes:
+            return []
+
+        # indices of the last K boxes
+        K = max(1, min(K, len(boxes)))
+        tail_start = len(boxes) - K
+        tail_indices = range(tail_start, len(boxes))
+
+        candidates = []
+        for bi in tail_indices:
+            b = boxes[bi]
+            # only placed rects
+            rects = [r for r in b.my_rects.keys() if getattr(r, "is_positioned", False)]
+            # largest first by area
+            rects.sort(key=lambda r: r.width * r.length, reverse=True)
+            # take top M
+            rects = rects[:M]
+            # collect with their source box index
+            candidates.extend((r, bi) for r in rects)
+
+        return candidates
+
