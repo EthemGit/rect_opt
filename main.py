@@ -386,7 +386,7 @@ class PackingGUI:
 
         try:
             self.algorithm = LocalSearchAlgo(self.selected_neighborhood_obj,
-                                             max_iters=2000,
+                                             max_iters=20000,
                                              stride=1,
                                              first_improvement=True,
                                              max_neighbors_per_step=500)

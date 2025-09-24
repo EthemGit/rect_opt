@@ -50,4 +50,28 @@ class RectanglePackingSolution(Solution):
         copy_sol = RectanglePackingSolution(deepcopy_boxes, self.box_length, self.rectangles)
         return copy_sol
     
+    def clone_partial(self, src_idx: int, tgt_idx: int):
+        """
+        Clone only the source and target boxes (cheap clone).
+        Other boxes are shared. Safe because only src/tgt are mutated.
+        This is optimized for local search (no new boxes are ever created).
+        """
+        new_boxes = list(self.boxes)
 
+        # clone source box
+        src_box = self.boxes[src_idx].clone()
+        new_boxes[src_idx] = src_box
+
+        # clone target box
+        if tgt_idx == src_idx:
+            tgt_box = src_box
+        else:
+            tgt_box = self.boxes[tgt_idx].clone()
+            new_boxes[tgt_idx] = tgt_box
+
+        # build new solution
+        return RectanglePackingSolution(
+            boxes=new_boxes,
+            box_length=self.box_length,
+            rectangles=self.rectangles
+        )
