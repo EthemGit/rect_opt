@@ -89,7 +89,7 @@ class LocalSearchAlgo(OptimizationAlgo):
                 break
 
             # record depending on stride or when a new box count was achieved
-            if it % self.stride == 0 or len(improved.boxes) != len(sol.boxes):
+            if it % self.stride == 0 or problem.evaluate(improved) < problem.evaluate(sol):
                 sols.append(improved)
 
             sol = improved

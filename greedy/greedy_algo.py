@@ -27,12 +27,17 @@ class GreedyAlgo(OptimizationAlgo):
         sol = problem.empty_solution()
         sols = [sol]
 
+        prev_val = problem.evaluate(sol)
+
         for idx, item in enumerate(order):
             new_sol = problem.process_item(sol, item)
+            new_val = problem.evaluate(new_sol)
 
-            # Append solution if stride reached or new box added
-            if idx % stride == 0 or len(sol.boxes) != len(new_sol.boxes):
+            # Append solution if stride reached or box count changed
+            if idx % stride == 0 or new_val != prev_val:
                 sols.append(new_sol)
+                prev_val = new_val
+
             sol = new_sol
 
         # append last solution
