@@ -10,7 +10,7 @@ from .box import Box
 import copy
 
 class RectanglePackingSolution(Solution):
-    def __init__(self, boxes, box_length, rectangles):
+    def __init__(self, boxes, box_length, rectangles, permutation=None):
         """ 
         Args:
             problem: RectanglePaackingProblem
@@ -19,6 +19,9 @@ class RectanglePackingSolution(Solution):
         self.rectangles: List[Rectangle] = rectangles
         self.boxes: List[Box] = boxes
         self.box_length: int = box_length
+        # Canonical order used to (re)build layouts:
+        # store as list[int] of rectangle IDs, never as mutable Rectangle instances
+        self.permutation = list(permutation) if permutation is not None else [r.id for r in rectangles]
     
     def validate(self, permitted_error: float):
         """ 
@@ -47,7 +50,12 @@ class RectanglePackingSolution(Solution):
     def clone(self):
         """ Creates an identical solution"""
         deepcopy_boxes = copy.deepcopy(self.boxes)
-        copy_sol = RectanglePackingSolution(deepcopy_boxes, self.box_length, self.rectangles)
+        copy_sol = RectanglePackingSolution(
+            boxes=deepcopy_boxes,
+            box_length=self.box_length,
+            rectangles=self.rectangles,
+            permutation=self.permutation
+        )
         return copy_sol
     
     def clone_partial(self, src_idx: int, tgt_idx: int):
@@ -73,5 +81,6 @@ class RectanglePackingSolution(Solution):
         return RectanglePackingSolution(
             boxes=new_boxes,
             box_length=self.box_length,
-            rectangles=self.rectangles
+            rectangles=self.rectangles,
+            permutation=self.permutation
         )

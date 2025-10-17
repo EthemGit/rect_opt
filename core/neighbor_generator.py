@@ -2,6 +2,7 @@
 from abc import ABC, abstractmethod
 from typing import Iterable, Optional
 
+
 class NeighborGenerator(ABC):
     """
     A NeighborGenerator is responsible for producing neighboring Solution objects
@@ -17,9 +18,15 @@ class NeighborGenerator(ABC):
     def generate_neighbors(self, problem, current_solution) -> Iterable:
         """Yield/return neighbor Solution objects (do NOT modify current_solution)."""
         raise NotImplementedError
+    
+    @abstractmethod
+    def is_permutation_based(self) -> bool:
+        """Return True if this neighbor generator works on permutation-based solutions."""
+        raise NotImplementedError
 
+    
 
-    def best_improving_neighbor(self, problem, sol, *, first_improvement: bool = True, max_neighbors: int = None):
+    def best_improving_neighbor(self, problem, sol, *, first_improvement: bool = True, max_neighbors: int = 100):
         """
         Default helper: iterate over generate_neighbors and return an improving neighbor.
         - If first_improvement=True: return the first neighbor with strictly better score.
@@ -27,18 +34,16 @@ class NeighborGenerator(ABC):
         - max_neighbors: optional cap to number of neighbors inspected.
         Returns None if no improving neighbor exists.
         """
-        base_val = problem.evaluate(sol)
-        best = None
-        best_val = base_val
         count = 0
-        for nb in self.generate_neighbors(problem, sol):
+        current_sol = sol
+        for potential_sol in self.generate_neighbors(problem, sol):
             if max_neighbors is not None and count >= max_neighbors:
                 break
             count += 1
-            val = problem.evaluate(nb)
-            if val < best_val:
-                best = nb
-                best_val = val
+            if problem.is_better_solution(current_sol, potential_sol):
+                current_sol = potential_sol
                 if first_improvement:
-                    return best
-        return best
+                    return current_sol
+        if current_sol != sol:
+            return current_sol
+        return None

@@ -29,6 +29,11 @@ class Problem(ABC, Generic[S, I]):
     def bad_solution(self) -> S:
         """Return a (bad) starting solution for local search"""
         pass
+
+    @abstractmethod
+    def bad_permutation_solution(self) -> S:
+        """Return a bad permutation starting solution for permutation based local search neighborhood."""
+        pass
     
     @abstractmethod
     def neighbors(self, sol: S):

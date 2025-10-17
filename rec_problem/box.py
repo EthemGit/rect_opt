@@ -100,7 +100,7 @@ class Box(Item):
         return anchors
 
     # lightweight clone (instead of deepcopy)
-    def clone(self) -> "Box":
+    def clone(self):
         new_box = Box(self.box_length)
         # Copy occupied rects
         new_box.my_rects = self.my_rects.copy()

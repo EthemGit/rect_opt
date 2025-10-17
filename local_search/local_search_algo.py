@@ -76,7 +76,10 @@ class LocalSearchAlgo(OptimizationAlgo):
         is possible or max_iters is reached.
         Returns a list of solutions (for GUI / step visualization).
         """
-        sol = problem.bad_solution()
+        if self.neighbor_generator.is_permutation_based():
+            sol = problem.bad_permutation_solution()
+        else:
+            sol = problem.bad_solution()
         sols = [sol]
         it = 0
         while it < self.max_iters:

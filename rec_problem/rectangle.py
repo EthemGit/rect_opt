@@ -16,3 +16,6 @@ class Rectangle(Item):
     def __eq__(self, other):
         return isinstance(other, Rectangle) and self.id == other.id
     
+    def get_area(self):
+        return self.length*self.width
+    

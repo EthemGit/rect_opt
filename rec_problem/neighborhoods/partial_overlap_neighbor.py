@@ -15,3 +15,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
     def generate_neighbors(self, problem, current_solution):
         pass
     # TODO
+
+    def is_permutation_based(self) -> bool:
+        """This neighborhood is NOT permutation-based."""
+        return False

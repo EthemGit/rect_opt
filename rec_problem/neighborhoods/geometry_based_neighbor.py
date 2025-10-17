@@ -38,6 +38,7 @@ class GeometryBasedNeighborhood(NeighborGenerator):
                 for (ax, ay) in anchors:
 
                     # skip (same position) and (same-box moves when the box is a singleton)
+                    # avoid pushing rect around in same box
                     if tgt_idx == src_box_idx:
                         pos = tgt_box.my_rects.get(rect, None)
                         if pos == (ax, ay) or len(tgt_box.my_rects) == 1:
@@ -99,14 +100,18 @@ class GeometryBasedNeighborhood(NeighborGenerator):
                     try:
                         tgt_b.insert_rect(cloned_rect, (ax, ay))
                     except Exception as e:
-                        print(f"WARNING: failure at when trying to insert rect {cloned_rect} at {(ax,ay)}. Skipping this neighbor.\
-                              Error is: {e} ")
+                        print(f"WARNING: failure while trying to insert rect ({cloned_rect}) at {(ax,ay)}. Skipping this neighbor.\
+                               Error is: {e} ")
 
 
                     generated += 1
                     yield nb
                     if self.max_neighbors is not None and generated >= self.max_neighbors:
                         return
+
+    def is_permutation_based(self) -> bool:
+        """This neighborhood is NOT permutation-based."""
+        return False
 
     # ------- helpers ------------------
 
