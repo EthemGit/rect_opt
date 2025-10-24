@@ -176,15 +176,29 @@ class RectanglePackingProblem(Problem):
         # always accept fewer boxes
         if len(new_sol.boxes) < len(old_sol.boxes):
             return True
-        
-        # accept solutions with fewer boxes that have less than 
+        """
+        # accept solutions with fewer boxes that have less than n rects 
         for n in range(2,5):
             old_number_of_boxes_with_few_rects = self._compute_number_of_boxes_with_n_rects(old_sol, n)
             new_number_of_boxes_with_few_rects = self._compute_number_of_boxes_with_n_rects(new_sol, n)
             if new_number_of_boxes_with_few_rects < old_number_of_boxes_with_few_rects:
-                return True
+                return True"""
+
+        # accept if emptiest box got emptier
+        if self._get_area_of_emptiest_box(new_sol) < self._get_area_of_emptiest_box(old_sol):
+            return True
 
         return False
+
+    def _get_area_of_emptiest_box(self, sol: RectanglePackingSolution):
+        """Returns area of the box with most empty area."""
+        boxes = sol.boxes
+        min_empty_area = sol.box_length ** 2
+        for box in boxes:
+            empty_box_area = len(box.empty_coordinates)
+            if empty_box_area < min_empty_area:
+                min_empty_area = empty_box_area
+        return min_empty_area
 
     def _compute_number_of_boxes_with_n_rects(self, sol: RectanglePackingSolution, n: int=5) -> int:
         """Helper function to count number of boxes with less than n rectangles."""

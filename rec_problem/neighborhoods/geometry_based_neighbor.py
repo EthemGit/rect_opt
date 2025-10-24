@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from rec_problem.rectangle import Rectangle
 
+import random
+
 @dataclass
 class GeometryBasedNeighborhood(NeighborGenerator):
     """
@@ -28,7 +30,7 @@ class GeometryBasedNeighborhood(NeighborGenerator):
         generated = 0  # performance. to compare with max_neighbors and avoid too long runtime
 
         # Speedup A: build smarter rectangle candidates (last K boxes, largest M)
-        candidates = self._build_candidates(current_solution, K=2, M=25)
+        candidates = self._build_candidates(current_solution)
 
         for rect, src_box_idx in candidates:
 
@@ -125,4 +127,25 @@ class GeometryBasedNeighborhood(NeighborGenerator):
             candidates.extend((r, bi) for r in rects)
 
         return candidates
+
+    def _build_candidates_random(self, solution):
+        """Returns 5 random (rect, src_box_idx) tuples."""
+        boxes = solution.boxes
+        if not boxes:
+            return []
+
+        # collect all positioned rects with their box index
+        all_rects = []
+        for bi, b in enumerate(boxes):
+            rects = [r for r in getattr(b, "my_rects", {}).keys()
+                     if getattr(r, "is_positioned", False)]
+            # store tuples (rect, box_index)
+            all_rects.extend((r, bi) for r in rects)
+
+        if not all_rects:
+            return []
+
+        # sample without replacement
+        return random.sample(all_rects, k=min(5, len(all_rects)))
+
 

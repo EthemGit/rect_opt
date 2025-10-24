@@ -707,7 +707,19 @@ class PackingGUI:
             n_boxes = len(getattr(sol, "boxes", []) or [])
         except Exception:
             n_boxes = "—"
-        self.solution_header_var.set(f"{step_txt}  —  Boxes: {n_boxes}")
+
+        # display chosen Algorithm
+        mapping = {
+            "rule_based": "Rule-Based",
+            "geometry": "Geometry-Based",
+            "partial_overlap": "Partial Overlap",
+            "largest_area": "Largest-Area-First",
+            "longest_side": "Longest-Side-First",
+        }
+        algo = "Greedy" if self.primary_choice.get() == "greedy" else "Local Search"
+        algo_specification = mapping.get(self.secondary_choice.get(), "Unknown")
+
+        self.solution_header_var.set(f"{step_txt}  —  Boxes: {n_boxes}  —  Algorithm: {algo} {algo_specification}")
 
         self._update_nav_buttons()
         self._sync_stepbar() # step bar in sync
