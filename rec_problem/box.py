@@ -85,6 +85,34 @@ class Box(Item):
 
             return True
     
+    def rect_fits_size(self, coordinates: Tuple[int, int], length: int, width: int) -> bool:
+            """ Checks whether whole of given rect fits at specific coordinates in given box. Faster than 
+            rect_fits_Here() because it does not get rect as a parameter but only length and width.
+            
+            Attributes:
+                coordinates: Tuple(int, int)
+                    The coordinates we check whether the rect fits in.
+                rect: Rectangle
+                    The rectangle to be put into the box.
+            """
+            # Check boundaries
+            x, y = coordinates
+            if x < 0 or y < 0:
+                return False
+            if (x + width) > self.box_length:
+                return False
+            if (y + length) > self.box_length:
+                return False
+            
+            # Check that there is no other rectangle in space occupied by coordinates + given rect
+            for dx in range(width):
+                for dy in range(length):
+                    cell = (x+dx, y+dy)
+                    if not cell in self.empty_coordinates:
+                        return False
+
+            return True
+    
     # get all rects in this box
     def get_rects(self) -> List[Rectangle]:
         return list(self.my_rects.keys())

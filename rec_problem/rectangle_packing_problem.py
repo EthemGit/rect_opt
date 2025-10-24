@@ -142,8 +142,8 @@ class RectanglePackingProblem(Problem):
                                 break
 
                             # didn't fit. check if rotated rect fits
-                            r2 = Rectangle(id=rect.id, length=rect.width, width=rect.length)
-                            if box.rect_fits_here(coordinates=(x, y), rect=r2):
+                            if box.rect_fits_size(coordinates=(x, y), length=rect.width, width=rect.length):
+                                r2 = Rectangle(id=rect.id, length=rect.width, width=rect.length)
                                 # rotate rect before positioning it
                                 box.insert_rect(rect=r2, coordinates=(x, y))
                                 positioned = True
@@ -221,18 +221,19 @@ class RectanglePackingProblem(Problem):
             for b in boxes:
                 for y in range(b.box_length):
                     for x in range(b.box_length):
-                        r1 = Rectangle(id=t.id, length=t.length, width=t.width)
                         if (x,y) in b.empty_coordinates:
-                            if b.rect_fits_here(coordinates=(x, y), rect=r1):
+                            L1, W1 = t.length, t.width
+                            if b.rect_fits_size(coordinates=(x, y), length=L1, width=W1):
+                                r1 = Rectangle(id=t.id, length=t.length, width=t.width)
                                 b.insert_rect(rect=r1, coordinates=(x, y))
                                 placed_rects.append(r1)
                                 placed = True
                                 break
 
                             # didn't fit. check if rotated rect fits
-                            r2 = Rectangle(id=t.id, length=t.width, width=t.length)
-                            if b.rect_fits_here(coordinates=(x, y), rect=r2):
-                                # rotate rect before positioning it
+                            L2, W2 = t.width, t.length  # rotated
+                            if b.rect_fits_size(coordinates=(x, y), length=L2, width=W2):
+                                r2 = Rectangle(id=t.id, length=L2, width=W2)
                                 b.insert_rect(rect=r2, coordinates=(x, y))
                                 placed_rects.append(r2)
                                 placed = True
