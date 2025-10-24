@@ -2,6 +2,8 @@
 from core.neighbor_generator import NeighborGenerator
 from dataclasses import dataclass
 
+from rec_problem.rectangle import Rectangle
+
 @dataclass
 class GeometryBasedNeighborhood(NeighborGenerator):
     """
@@ -33,9 +35,9 @@ class GeometryBasedNeighborhood(NeighborGenerator):
             # generate move targets: all existing boxes + a new empty box
             target_boxes = list(enumerate(current_solution.boxes))  # list of (idx, box)
 
-            for tgt_idx, tgt_box in target_boxes:
+            for tgt_box_idx, tgt_box in target_boxes:
                 # avoid pushing rect around in same box
-                if tgt_idx == src_box_idx:
+                if tgt_box_idx == src_box_idx:
                     continue
 
                 for y in range(tgt_box.box_length):
@@ -43,48 +45,49 @@ class GeometryBasedNeighborhood(NeighborGenerator):
 
                         # ----- cheap feasibility pre-check (no clone) -----
                         feasible = False
-                        if tgt_idx != src_box_idx:
-                            #  simple check if target box has space here
-                            if tgt_box.rect_fits_here((x, y), rect):
-                                feasible = True
-
+                        rotated = False
+                        rect_rot = Rectangle(id=rect.id, length=rect.width, width=rect.length, is_positioned=rect.is_positioned)
+                        #  simple check if target box has space here
+                        feasible = tgt_box.rect_fits_here((x, y), rect)
+                        # check if rotated rect fits
+                        if not feasible:
+                            feasible = tgt_box.rect_fits_here((x, y), rect_rot)
+                            rotated = feasible
                         if not feasible:
                             continue
                         # ---------------------------------------------------
 
                         # build a neighbor solution with partial cloning
-                        nb = current_solution.clone_partial(src_box_idx, tgt_idx)
-                        # find cloned rect inside nb
+                        cloned_solution = current_solution.clone_partial(src_box_idx, tgt_box_idx)
+                        # find cloned rect inside cloned solution
                         cloned_rect = next(
-                            (r for r in nb.rectangles if getattr(r, "id", None) == getattr(rect, "id", None)),
+                            (r for r in cloned_solution.rectangles if getattr(r, "id", None) == getattr(rect, "id", None)),
                             None
                         )
                         if cloned_rect is None:
                             continue
 
-                        # IMPORTANT: capture target box BEFORE removal (indices may shift if a box becomes empty)
-                        tgt_b = nb.boxes[tgt_idx]
+                        # capture target and source boxes BEFORE removal (indices may shift if a box becomes empty)
+                        tgt_box_in_clone = cloned_solution.boxes[tgt_box_idx]
+                        src_box_in_clone = cloned_solution.boxes[src_box_idx]
 
                         # remove from its current box in clone
-                        for b in nb.boxes[:]:  # iterate over copy so we can delete
-                            if cloned_rect in b.my_rects:
-                                b.remove_rect(cloned_rect)
-                                if not b.my_rects:  # box became empty
-                                    # delete empty box. otherwise value never decreases -> local search never progresses
-                                    nb.boxes.remove(b)  
-                                break
-
+                        src_box_in_clone.remove_rect(cloned_rect)
+                        if not src_box_in_clone.my_rects:  # box became empty
+                            cloned_solution.boxes.remove(src_box_in_clone)
 
                         # insert into the cloned/created target box
                         try:
-                            tgt_b.insert_rect(cloned_rect, (ax, ay))
+                            if rotated: # apply rotation if needed
+                                tgt_box_in_clone.insert_rect(rect_rot, (x,y))
+                            else:
+                                tgt_box_in_clone.insert_rect(cloned_rect, (x, y))
                         except Exception as e:
-                            print(f"WARNING: failure while trying to insert rect ({cloned_rect}) at {(ax,ay)}. Skipping this neighbor.\
+                            print(f"WARNING: failure while trying to insert rect ({cloned_rect}) at {(x, y)}. Skipping this neighbor.\
                                 Error is: {e} ")
 
-
                         generated += 1
-                        yield nb
+                        yield cloned_solution
                         if self.max_neighbors is not None and generated >= self.max_neighbors:
                             return
 
