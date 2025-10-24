@@ -34,80 +34,59 @@ class GeometryBasedNeighborhood(NeighborGenerator):
             target_boxes = list(enumerate(current_solution.boxes))  # list of (idx, box)
 
             for tgt_idx, tgt_box in target_boxes:
-                anchors = tgt_box.get_anchor_positions()
-                for (ax, ay) in anchors:
+                # avoid pushing rect around in same box
+                if tgt_idx == src_box_idx:
+                    continue
 
-                    # skip (same position) and (same-box moves when the box is a singleton)
-                    # avoid pushing rect around in same box
-                    if tgt_idx == src_box_idx:
-                        pos = tgt_box.my_rects.get(rect, None)
-                        if pos == (ax, ay) or len(tgt_box.my_rects) == 1:
+                for y in range(tgt_box.box_length):
+                    for x in range(tgt_box.box_length):
+
+                        # ----- cheap feasibility pre-check (no clone) -----
+                        feasible = False
+                        if tgt_idx != src_box_idx:
+                            #  simple check if target box has space here
+                            if tgt_box.rect_fits_here((x, y), rect):
+                                feasible = True
+
+                        if not feasible:
+                            continue
+                        # ---------------------------------------------------
+
+                        # build a neighbor solution with partial cloning
+                        nb = current_solution.clone_partial(src_box_idx, tgt_idx)
+                        # find cloned rect inside nb
+                        cloned_rect = next(
+                            (r for r in nb.rectangles if getattr(r, "id", None) == getattr(rect, "id", None)),
+                            None
+                        )
+                        if cloned_rect is None:
                             continue
 
-                    # ----- cheap feasibility pre-check (no clone) -----
-                    feasible = False
-                    if tgt_idx != src_box_idx:  # moving to another box
-                        #  simple check if target box has space here
-                        if tgt_box.rect_fits_here((ax, ay), rect):
-                            feasible = True
-                    else:  # moving within same box: candidate cells must be empty or belong to the rect itself
-                        curx, cury = tgt_box.my_rects.get(rect)
-                        # boundary quick-check
-                        if ax < 0 or ay < 0 or (ax + rect.width) > tgt_box.box_length or (ay + rect.length) > tgt_box.box_length:
-                            feasible = False
-                        else:
-                            cur_cells = {  # all grid cells currently occupied by the rect
-                                (curx + dx, cury + dy) for dx in range(rect.width) for dy in range(rect.length)
-                            }
-                            cand_cells = {  # all grid grid cells the rectangle would occupy if moved
-                                (ax + dx, ay + dy) for dx in range(rect.width) for dy in range(rect.length)
-                            }
-                            blocked = False
-                            for cell in cand_cells:
-                                if cell not in tgt_box.empty_coordinates and cell not in cur_cells:
-                                    blocked = True
-                                    break
-                            feasible = not blocked
+                        # IMPORTANT: capture target box BEFORE removal (indices may shift if a box becomes empty)
+                        tgt_b = nb.boxes[tgt_idx]
 
-                    if not feasible:
-                        continue
-                    # ---------------------------------------------------
-
-                    # build a neighbor solution with partial cloning
-                    nb = current_solution.clone_partial(src_box_idx, tgt_idx)
-                    # find cloned rect inside nb
-                    cloned_rect = next(
-                        (r for r in nb.rectangles if getattr(r, "id", None) == getattr(rect, "id", None)),
-                        None
-                    )
-                    if cloned_rect is None:
-                        continue
-
-                    # IMPORTANT: capture target box BEFORE removal (indices may shift if a box becomes empty)
-                    tgt_b = nb.boxes[tgt_idx]
-
-                    # remove from its current box in clone
-                    for b in nb.boxes[:]:  # iterate over copy so we can delete
-                        if cloned_rect in b.my_rects:
-                            b.remove_rect(cloned_rect)
-                            if not b.my_rects:  # box became empty
-                                # delete empty box. otherwise value never decreases -> local search never progresses
-                                nb.boxes.remove(b)  
-                            break
+                        # remove from its current box in clone
+                        for b in nb.boxes[:]:  # iterate over copy so we can delete
+                            if cloned_rect in b.my_rects:
+                                b.remove_rect(cloned_rect)
+                                if not b.my_rects:  # box became empty
+                                    # delete empty box. otherwise value never decreases -> local search never progresses
+                                    nb.boxes.remove(b)  
+                                break
 
 
-                    # insert into the cloned/created target box
-                    try:
-                        tgt_b.insert_rect(cloned_rect, (ax, ay))
-                    except Exception as e:
-                        print(f"WARNING: failure while trying to insert rect ({cloned_rect}) at {(ax,ay)}. Skipping this neighbor.\
-                               Error is: {e} ")
+                        # insert into the cloned/created target box
+                        try:
+                            tgt_b.insert_rect(cloned_rect, (ax, ay))
+                        except Exception as e:
+                            print(f"WARNING: failure while trying to insert rect ({cloned_rect}) at {(ax,ay)}. Skipping this neighbor.\
+                                Error is: {e} ")
 
 
-                    generated += 1
-                    yield nb
-                    if self.max_neighbors is not None and generated >= self.max_neighbors:
-                        return
+                        generated += 1
+                        yield nb
+                        if self.max_neighbors is not None and generated >= self.max_neighbors:
+                            return
 
     def is_permutation_based(self) -> bool:
         """This neighborhood is NOT permutation-based."""

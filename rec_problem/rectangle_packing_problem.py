@@ -17,6 +17,7 @@ class RectangleTemplate:
     id: int
     length: int
     width: int
+    
 
 class RectanglePackingProblem(Problem):
     """
@@ -192,40 +193,33 @@ class RectanglePackingProblem(Problem):
 
             # try existing boxes in fixed order
             for b in boxes:
-                # anchors in fixed order; include (0,0) first if you like
-                anchors = [(0, 0)] + sorted(
-                    b.get_anchor_positions(),
-                    key=lambda pos: (pos[1], pos[0])
-                )
-                for (ax, ay) in anchors:
-                    # orientation 1
-                    r1 = Rectangle(id=t.id, length=t.length, width=t.width)
-                    if b.rect_fits_here((ax, ay), r1):
-                        b.insert_rect(r1, (ax, ay))
-                        placed_rects.append(r1)
-                        placed = True
-                        break
-                    # orientation 2 (90°)
-                    r2 = Rectangle(id=t.id, length=t.width, width=t.length)
-                    if b.rect_fits_here((ax, ay), r2):
-                        b.insert_rect(r2, (ax, ay))
-                        placed_rects.append(r2)
-                        placed = True
-                        break
-                if placed:
-                    break
+                for y in range(b.box_length):
+                    for x in range(b.box_length):
+                        r1 = Rectangle(id=t.id, length=t.length, width=t.width)
+                        if (x,y) in b.empty_coordinates:
+                            if b.rect_fits_here(coordinates=(x, y), rect=r1):
+                                b.insert_rect(rect=r1, coordinates=(x, y))
+                                placed_rects.append(r1)
+                                placed = True
+                                break
 
-            # if none fit, open new box and place at canonical first anchor
+                            # didn't fit. check if rotated rect fits
+                            r2 = Rectangle(id=t.id, length=t.width, width=t.length)
+                            if b.rect_fits_here(coordinates=(x, y), rect=r2):
+                                # rotate rect before positioning it
+                                b.insert_rect(rect=r2, coordinates=(x, y))
+                                placed_rects.append(r2)
+                                placed = True
+                                break
+                    if placed:
+                        break
+
+            # if none fit, open new box and place at (0,0)
             if not placed:
                 nb = Box(self.box_length)
-                r0 = Rectangle(id=t.id, length=t.length, width=t.width)  # try default orientation first
-                if nb.rect_fits_here((0, 0), r0):
-                    nb.insert_rect(r0, (0, 0))
-                    placed_rects.append(r0)
-                else:
-                    r0r = Rectangle(id=t.id, length=t.width, width=t.length)
-                    nb.insert_rect(r0r, (0, 0))
-                    placed_rects.append(r0r)
+                r0 = Rectangle(id=t.id, length=t.length, width=t.width)
+                nb.insert_rect(r0, (0, 0))
+                placed_rects.append(r0)
                 boxes.append(nb)
 
         # Build the solution carrying the canonical permutation forward

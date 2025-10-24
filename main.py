@@ -184,6 +184,9 @@ class PackingGUI:
 
             if rect_min > rect_max:
                 raise ValueError("Rect size min must be ≤ max.")
+            
+            if rect_max > box_length:
+                raise ValueError("Rect sizes must be ≤ box length.")                
 
             self.problem = RectanglePackingProblem(
                 box_length=box_length,
