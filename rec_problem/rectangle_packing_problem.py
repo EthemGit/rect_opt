@@ -132,11 +132,23 @@ class RectanglePackingProblem(Problem):
         for rect in self.rectangles:
             positioned = False
             for box in boxes:
-                anchors = box.get_anchor_positions()
-                for (ax, ay) in anchors:
-                    if box.rect_fits_here((ax, ay), rect):
-                        box.insert_rect(rect, (ax, ay))
-                        positioned = True
+
+                for y in range(box.box_length):
+                    for x in range(box.box_length):
+                        if (x,y) in box.empty_coordinates:
+                            if box.rect_fits_here(coordinates=(x, y), rect=rect):
+                                box.insert_rect(rect=rect, coordinates=(x, y))
+                                positioned = True
+                                break
+
+                            # didn't fit. check if rotated rect fits
+                            r2 = Rectangle(id=rect.id, length=rect.width, width=rect.length)
+                            if box.rect_fits_here(coordinates=(x, y), rect=r2):
+                                # rotate rect before positioning it
+                                box.insert_rect(rect=r2, coordinates=(x, y))
+                                positioned = True
+                                break
+                    if positioned:
                         break
                 
                 if positioned:
@@ -148,7 +160,7 @@ class RectanglePackingProblem(Problem):
                 boxes.append(new_box)
 
         return RectanglePackingSolution(box_length=self.box_length, rectangles=self.rectangles, boxes=boxes)
-
+    
     
     def neighbors(self, sol: RectanglePackingSolution):
         pass

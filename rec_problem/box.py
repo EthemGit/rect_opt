@@ -89,16 +89,6 @@ class Box(Item):
     def get_rects(self) -> List[Rectangle]:
         return list(self.my_rects.keys())
 
-    # compute anchor positions for placing new rects
-    def get_anchor_positions(self) -> Set[Tuple[int, int]]:
-        """Return potential 'anchor' positions for trying new placements.
-        Anchors are positions aligned to existing rects (right/below)."""
-        anchors = set()
-        for rect, (x, y) in self.my_rects.items():
-            anchors.add((x + rect.width, y))      # right edge
-            anchors.add((x, y + rect.length))     # bottom edge
-        return anchors
-
     # lightweight clone (instead of deepcopy)
     def clone(self):
         new_box = Box(self.box_length)
