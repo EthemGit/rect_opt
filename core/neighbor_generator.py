@@ -34,6 +34,23 @@ class NeighborGenerator(ABC):
         - max_neighbors: optional cap to number of neighbors inspected.
         Returns None if no improving neighbor exists.
         """
+        base_val = problem.evaluate(sol)
+        best = None
+        best_val = base_val
+        count = 0
+        for nb in self.generate_neighbors(problem, sol):
+
+            if max_neighbors is not None and count >= max_neighbors:
+                break
+            count += 1
+            val = problem.evaluate(nb)
+            if val < best_val:
+                best = nb
+                best_val = val
+                if first_improvement:
+                    return best
+        return best
+
         count = 0
         current_sol = sol
         for potential_sol in self.generate_neighbors(problem, sol):
