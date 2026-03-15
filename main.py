@@ -382,7 +382,7 @@ class PackingGUI:
         elif token == "partial_overlap":
             self.selected_neighborhood_obj = PartialOverlapNeighborhood(max_neighbors=500)
         elif token == "rule_based":
-            self.selected_neighborhood_obj = RuleBasedNeighborhood(max_neighbors=500)
+            self.selected_neighborhood_obj = RuleBasedNeighborhood(max_neighbors=2000)
         else:
             messagebox.showerror("Unknown Strategy", f"Unknown strategy token: {token}")
             return            
@@ -393,7 +393,7 @@ class PackingGUI:
                                              max_iters=2000,
                                              stride=stride,
                                              first_improvement=True,
-                                             max_neighbors_per_step=500,
+                                             max_neighbors_per_step=2000,
                                              time_limit_seconds=9.0)
             self._solutions = self.algorithm.solve(self.problem)
             self._compute_step_new_sets()

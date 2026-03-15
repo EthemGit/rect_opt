@@ -136,7 +136,7 @@ class RuleBasedNeighborhood(NeighborGenerator):
 
         # Random: sample rects from across the full permutation
         n = len(perm)
-        n_random = min(15, n)
+        n_random = min(50, n)
         random_ids = []
         for idx in random.sample(range(n), min(n_random + len(seen), n)):
             rid = perm[idx]
@@ -167,7 +167,7 @@ class RuleBasedNeighborhood(NeighborGenerator):
             return []
         sorted_boxes = sorted(boxes, key=lambda b: len(b.my_rects))
         candidate_ids = []
-        for box in sorted_boxes[:3]:
+        for box in sorted_boxes[:7]:
             for rect in box.my_rects.keys():
                 candidate_ids.append(rect.id)
         return candidate_ids
