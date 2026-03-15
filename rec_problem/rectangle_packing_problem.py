@@ -162,30 +162,33 @@ class RectanglePackingProblem(Problem):
         for rid in order_ids:
             t = self.rect_templates[rid]           # immutable (L, W)
             placed = False
+            rect_area = t.length * t.width         # both orientations have same area
 
             # try existing boxes in fixed order
+            # sorted(empty_coordinates) gives row-major (bottom-left-fill) order while
+            # skipping occupied cells — better placement quality than full grid scan
             for b in boxes:
-                for y in range(b.box_length):
-                    for x in range(b.box_length):
-                        if (x,y) in b.empty_coordinates:
-                            L1, W1 = t.length, t.width
-                            if b.rect_fits_size(coordinates=(x, y), length=L1, width=W1):
-                                r1 = Rectangle(id=t.id, length=t.length, width=t.width)
-                                b.insert_rect(rect=r1, coordinates=(x, y))
-                                placed_rects.append(r1)
-                                placed = True
-                                break
-
-                            # didn't fit. check if rotated rect fits
-                            L2, W2 = t.width, t.length  # rotated
-                            if b.rect_fits_size(coordinates=(x, y), length=L2, width=W2):
-                                r2 = Rectangle(id=t.id, length=L2, width=W2)
-                                b.insert_rect(rect=r2, coordinates=(x, y))
-                                placed_rects.append(r2)
-                                placed = True
-                                break
-                    if placed:
+                if len(b.empty_coordinates) < rect_area:
+                    continue  # not enough free cells — skip without sorting
+                for (x, y) in sorted(b.empty_coordinates):
+                    L1, W1 = t.length, t.width
+                    if b.rect_fits_size(coordinates=(x, y), length=L1, width=W1):
+                        r1 = Rectangle(id=t.id, length=t.length, width=t.width)
+                        b.insert_rect(rect=r1, coordinates=(x, y))
+                        placed_rects.append(r1)
+                        placed = True
                         break
+
+                    # didn't fit. check if rotated rect fits
+                    L2, W2 = t.width, t.length  # rotated
+                    if b.rect_fits_size(coordinates=(x, y), length=L2, width=W2):
+                        r2 = Rectangle(id=t.id, length=L2, width=W2)
+                        b.insert_rect(rect=r2, coordinates=(x, y))
+                        placed_rects.append(r2)
+                        placed = True
+                        break
+                if placed:
+                    break
 
             # if none fit, open new box and place at (0,0)
             if not placed:

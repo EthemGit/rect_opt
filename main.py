@@ -388,13 +388,13 @@ class PackingGUI:
             return            
 
         try:
-            rect_count = len(self.problem.rectangles)
-            stride = max(1, min(10, rect_count // 10))
+            stride = 1
             self.algorithm = LocalSearchAlgo(self.selected_neighborhood_obj,
                                              max_iters=2000,
                                              stride=stride,
                                              first_improvement=True,
-                                             max_neighbors_per_step=500)
+                                             max_neighbors_per_step=500,
+                                             time_limit_seconds=9.0)
             self._solutions = self.algorithm.solve(self.problem)
             self._compute_step_new_sets()
             if not self._solutions:
@@ -775,17 +775,26 @@ class PackingGUI:
         return positions
 
     def _compute_step_new_sets(self):
-        """For each step i: which rects are newly placed or changed position vs step i-1."""
+        """For each step: which rects changed.
+        If the solution carries .highlighted_ids (set by the neighborhood for precise
+        per-move highlighting), use that directly. Otherwise fall back to comparing
+        (box_idx, x, y) positions between consecutive steps."""
         self._step_new_keys = []
         prev_positions = {}
         for sol in (self._solutions or []):
-            cur_positions = self._extract_positions_from_solution(sol)
-            changed = {
-                rid for rid, pos in cur_positions.items()
-                if prev_positions.get(rid) != pos
-            }
-            self._step_new_keys.append(changed)
-            prev_positions = cur_positions
+            highlighted = getattr(sol, 'highlighted_ids', None)
+            if highlighted is not None:
+                self._step_new_keys.append(set(highlighted))
+                # keep prev_positions in sync for any subsequent fallback steps
+                prev_positions = self._extract_positions_from_solution(sol)
+            else:
+                cur_positions = self._extract_positions_from_solution(sol)
+                changed = {
+                    rid for rid, pos in cur_positions.items()
+                    if prev_positions.get(rid) != pos
+                }
+                self._step_new_keys.append(changed)
+                prev_positions = cur_positions
 
     def _on_stepbar_drag(self, value_str):
         if self._stepbar_updating or not self._solutions:

@@ -61,12 +61,13 @@ class LocalSearchAlgo(OptimizationAlgo):
     - first_improvement: whether to accept first improving neighbor (fast) or best (slower)
     """
 
-    def __init__(self, neighbor_generator, max_iters: int = 1000, stride: int = 1, first_improvement: bool = True, max_neighbors_per_step: int = None):
+    def __init__(self, neighbor_generator, max_iters: int = 1000, stride: int = 1, first_improvement: bool = True, max_neighbors_per_step: int = None, time_limit_seconds: float = 0.0):
         self.neighbor_generator = neighbor_generator
         self.max_iters = int(max_iters)
         self.stride = int(stride)
         self.first_improvement = bool(first_improvement)
         self.max_neighbors_per_step = max_neighbors_per_step
+        self.time_limit_seconds = time_limit_seconds
 
 
     def solve(self, problem):
@@ -76,11 +77,16 @@ class LocalSearchAlgo(OptimizationAlgo):
         is possible or max_iters is reached.
         Returns a list of solutions (for GUI / step visualization).
         """
+        import time
+        start_time = time.time()
+
         sol = self.neighbor_generator.initial_solution(problem)
         sols = [sol]
         it = 0
         improvements_since_last_record = 0
         while it < self.max_iters:
+            if self.time_limit_seconds and (time.time() - start_time) > self.time_limit_seconds:
+                break
             improved = self.neighbor_generator.best_improving_neighbor(
                 problem, sol,
                 first_improvement=self.first_improvement,

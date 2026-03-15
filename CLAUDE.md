@@ -28,6 +28,7 @@ No external dependencies beyond Python 3.10+ standard library. No build system.
 The codebase uses a **generic core / concrete problem** split:
 
 ### Core layer (`core/`) — problem-agnostic abstractions
+
 - `Problem[S, I]` — abstract problem defining `empty_solution()`, `items_for_greedy()`, `process_item()`, `bad_solution()`, `evaluate()`, etc.
 - `Solution` — abstract with `validate()`, `get_objective_value()`, `clone()`
 - `OptimizationAlgo[S]` — abstract algorithm with `solve(problem) -> List[S]` (returns list of intermediate solutions for GUI stepping)
@@ -36,25 +37,30 @@ The codebase uses a **generic core / concrete problem** split:
 - `Item` — empty marker base class for Rectangle and Box
 
 ### Rectangle packing layer (`rec_problem/`) — concrete implementations
+
 - `RectanglePackingProblem` — generates random rectangles, implements all `Problem` methods including `construct_from_order()` for permutation-based neighborhoods
 - `RectanglePackingSolution` — holds `boxes: List[Box]`, `box_length`, `rectangles`, and `permutation` (list of rect IDs). Has both `clone()` (deep copy) and `clone_partial(src, tgt)` (only clones two boxes, shares rest — performance optimization for local search)
 - `Rectangle` — dataclass with `id`, `length`, `width`; hashed/compared by `id`
 - `Box` — tracks placed rects via `my_rects: Dict[Rectangle, (x,y)]` and `empty_coordinates: Set` (all unoccupied grid cells). Provides `insert_rect()`, `remove_rect()`, `rect_fits_here()`, `get_anchor_positions()`
 
 ### Algorithms
+
 - `greedy/greedy_algo.py` — `GreedyAlgo`: iterates items in strategy-defined order, calls `problem.process_item()` per rectangle
 - `local_search/local_search_algo.py` — `LocalSearchAlgo`: starts from a bad solution, repeatedly calls `neighbor_generator.best_improving_neighbor()`. Supports first-improvement vs best-improvement mode
 
 ### Neighborhoods (`rec_problem/neighborhoods/`)
+
 - `geometry_based_neighbor.py` — moves single rects to anchor positions in other boxes; uses `clone_partial()` for speed
 - `partial_overlap_neighbor.py` — allows partial overlaps during search
 - `rule_based_neighbor.py` — permutation-based; swaps rect IDs in the permutation then rebuilds via `problem.construct_from_order()`
 
 ### Greedy strategies (`rec_problem/strategies/`)
+
 - `strat_largest_area_first.py` — sorts rectangles by area descending
 - `strat_longest_side_first.py` — sorts by longest side descending
 
 ### GUI (`main.py`)
+
 - `PackingGUI` — Tkinter app. Main window has controls + rectangle table (left) and algorithm/strategy chooser (right). Solutions render in a pop-up `Toplevel` window with prev/next navigation, step slider, and zoom.
 
 ## Key Design Patterns
@@ -68,20 +74,20 @@ The codebase uses a **generic core / concrete problem** split:
 ## Workflow
 
 - **Progress tracking**: All open violations, bugs, and completed work are tracked in `PROGRESS.md`. **Read it at the start of every session** before doing anything else.
-- **Commit regularly** in logical units with concise messages. No AI co-author tags ever.
+- **Commit when I tell you to.** Use concise commit messages. No AI co-author tags ever.
 - **Headless testing**: Use `benchmark.py` (to be built) to validate algorithms without GUI — measures CPU time, objective values, and solution correctness. This also fulfills the Section 8 benchmarking requirement.
 - **Self-validation**: Run headless benchmarks to check correctness and timing rather than asking the user to run the GUI.
 
 ## Known Violations (summary — see PROGRESS.md for detail)
 
-| ID | Issue |
-|----|-------|
+| ID | Issue                                                                               |
+| -- | ----------------------------------------------------------------------------------- |
 | V1 | `is_permutation_based()` in `NeighborGenerator` leaks problem concept into core |
-| V2 | `neighbors()` and `bad_permutation_solution()` in `Problem` are LS-specific |
-| V3 | Partial overlap neighborhood is a complete stub |
-| V4 | Instance generator lacks separate min/max width and height |
-| V5 | GUI uses green colors — must be Yellow/Blue |
-| V6 | Benchmark harness (`benchmark.py`) missing entirely |
-| B1 | `process_item()` mutates the original Rectangle object |
-| B2 | `bad_permutation_solution()` mutates `self.rectangles` |
-| B3 | `validate()` not implemented (`x=42` placeholder) |
+| V2 | `neighbors()` and `bad_permutation_solution()` in `Problem` are LS-specific   |
+| V3 | Partial overlap neighborhood is a complete stub                                     |
+| V4 | Instance generator lacks separate min/max width and height                          |
+| V5 | GUI uses green colors — must be Yellow/Blue                                        |
+| V6 | Benchmark harness (`benchmark.py`) missing entirely                               |
+| B1 | `process_item()` mutates the original Rectangle object                            |
+| B2 | `bad_permutation_solution()` mutates `self.rectangles`                          |
+| B3 | `validate()` not implemented (`x=42` placeholder)                               |
