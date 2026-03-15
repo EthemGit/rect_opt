@@ -54,12 +54,12 @@ Track open violations, bugs, and completed work across sessions.
 
 ## BUGS
 
-### B1 — `process_item()` mutates the original Rectangle `[  ]`
+### B1 — `process_item()` mutates the original Rectangle `[x]`
 **Where:** `rec_problem/rectangle_packing_problem.py:106`
 **Problem:** `item.width, item.length = new_width, new_length` modifies the passed-in Rectangle in place. Since `items_for_greedy()` returns `self.rectangles` (the canonical list), this corrupts the problem's rectangle data for all future calls.
 **Fix:** Create a rotated copy (`item_rot` already exists) instead of mutating `item`.
 
-### B2 — `bad_permutation_solution()` mutates `self.rectangles` `[  ]`
+### B2 — `bad_permutation_solution()` mutates `self.rectangles` `[x]`
 **Where:** `rec_problem/rectangle_packing_problem.py:130`
 **Problem:** `self.rectangles = sorted(self.rectangles, ...)` permanently reorders the problem's rectangle list.
 **Fix:** Sort a local copy: `rects = sorted(self.rectangles, ...)`.

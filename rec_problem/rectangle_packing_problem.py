@@ -101,10 +101,7 @@ class RectanglePackingProblem(Problem):
                             box.insert_rect(rect=item, coordinates=(x, y))
                             return new_sol
                         if box.rect_fits_here(coordinates=(x, y), rect=item_rot):
-                            # rotate rect before positioning it
-                            new_length, new_width = width, length
-                            item.width, item.length = new_width, new_length
-                            box.insert_rect(rect=item, coordinates=(x, y))
+                            box.insert_rect(rect=item_rot, coordinates=(x, y))
                             return new_sol
         # Create new box if we cannot place rect in existing box
         new_box = Box(box_length)
