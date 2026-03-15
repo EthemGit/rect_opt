@@ -79,6 +79,7 @@ class LocalSearchAlgo(OptimizationAlgo):
         sol = self.neighbor_generator.initial_solution(problem)
         sols = [sol]
         it = 0
+        improvements_since_last_record = 0
         while it < self.max_iters:
             improved = self.neighbor_generator.best_improving_neighbor(
                 problem, sol,
@@ -88,9 +89,11 @@ class LocalSearchAlgo(OptimizationAlgo):
             if improved is None:
                 break
 
-            # record depending on stride or when a new box count was achieved
-            if it % self.stride == 0 or problem.evaluate(improved) < problem.evaluate(sol):
-                sols.append(improved)
+            if problem.evaluate(improved) < problem.evaluate(sol):
+                improvements_since_last_record += 1
+                if improvements_since_last_record >= self.stride:
+                    sols.append(improved)
+                    improvements_since_last_record = 0
 
             sol = improved
             it += 1

@@ -84,9 +84,8 @@ class GeometryBasedNeighborhood(NeighborGenerator):
                                 tgt_box_in_clone.insert_rect(rect_rot, (x,y))
                             else:
                                 tgt_box_in_clone.insert_rect(cloned_rect, (x, y))
-                        except Exception as e:
-                            print(f"WARNING: failure while trying to insert rect ({cloned_rect}) at {(x, y)}. Skipping this neighbor.\
-                                Error is: {e} ")
+                        except Exception:
+                            continue  # skip broken neighbor — rect removed but not placed
 
                         generated += 1
                         yield cloned_solution

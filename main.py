@@ -388,9 +388,11 @@ class PackingGUI:
             return            
 
         try:
+            rect_count = len(self.problem.rectangles)
+            stride = max(1, min(10, rect_count // 10))
             self.algorithm = LocalSearchAlgo(self.selected_neighborhood_obj,
                                              max_iters=2000,
-                                             stride=1,
+                                             stride=stride,
                                              first_improvement=True,
                                              max_neighbors_per_step=500)
             self._solutions = self.algorithm.solve(self.problem)
@@ -762,24 +764,28 @@ class PackingGUI:
             return id(rect)
         return int(rid)
 
-    def _extract_keys_from_solution(self, sol) -> set[int]:
-        """All rectangle keys present in a solution (union over all boxes)."""
-        keys = set()
-        for box in (getattr(sol, "boxes", None) or []):
+    def _extract_positions_from_solution(self, sol) -> dict:
+        """Returns {rect_id: (box_idx, x, y)} for every placed rect."""
+        positions = {}
+        for box_idx, box in enumerate(getattr(sol, "boxes", None) or []):
             my_rects = getattr(box, "my_rects", {}) or {}
             if isinstance(my_rects, dict):
-                for rect in my_rects.keys():
-                    keys.add(self._rect_key(rect))
-        return keys
+                for rect, (x, y) in my_rects.items():
+                    positions[self._rect_key(rect)] = (box_idx, x, y)
+        return positions
 
     def _compute_step_new_sets(self):
-        """For each step i: which rects are newly present vs step i-1."""
+        """For each step i: which rects are newly placed or changed position vs step i-1."""
         self._step_new_keys = []
-        prev = set()
+        prev_positions = {}
         for sol in (self._solutions or []):
-            cur = self._extract_keys_from_solution(sol)
-            self._step_new_keys.append(cur - prev)
-            prev = cur
+            cur_positions = self._extract_positions_from_solution(sol)
+            changed = {
+                rid for rid, pos in cur_positions.items()
+                if prev_positions.get(rid) != pos
+            }
+            self._step_new_keys.append(changed)
+            prev_positions = cur_positions
 
     def _on_stepbar_drag(self, value_str):
         if self._stepbar_updating or not self._solutions:
