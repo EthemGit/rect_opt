@@ -65,8 +65,23 @@ The codebase uses a **generic core / concrete problem** split:
 - **Permutation-based vs geometry-based neighborhoods**: `NeighborGenerator.is_permutation_based()` determines whether local search starts from `bad_solution()` (one rect per box) or `bad_permutation_solution()` (greedy-like initial packing).
 - **Box coordinate system**: `(x, y)` where x is horizontal (width direction), y is vertical (length direction). `rect.width` extends along x, `rect.length` extends along y.
 
-## Workflow Preferences
+## Workflow
 
-- **Commit regularly** in logical units (not every line, but each meaningful change). Use concise commit messages.
-- **Cross-session continuity**: Important decisions, progress, open issues, and performance benchmarks are tracked in the Claude memory directory so future sessions can pick up where the last one left off.
+- **Progress tracking**: All open violations, bugs, and completed work are tracked in `PROGRESS.md`. **Read it at the start of every session** before doing anything else.
+- **Commit regularly** in logical units with concise messages. No AI co-author tags ever.
 - **Headless testing**: Use `benchmark.py` (to be built) to validate algorithms without GUI — measures CPU time, objective values, and solution correctness. This also fulfills the Section 8 benchmarking requirement.
+- **Self-validation**: Run headless benchmarks to check correctness and timing rather than asking the user to run the GUI.
+
+## Known Violations (summary — see PROGRESS.md for detail)
+
+| ID | Issue |
+|----|-------|
+| V1 | `is_permutation_based()` in `NeighborGenerator` leaks problem concept into core |
+| V2 | `neighbors()` and `bad_permutation_solution()` in `Problem` are LS-specific |
+| V3 | Partial overlap neighborhood is a complete stub |
+| V4 | Instance generator lacks separate min/max width and height |
+| V5 | GUI uses green colors — must be Yellow/Blue |
+| V6 | Benchmark harness (`benchmark.py`) missing entirely |
+| B1 | `process_item()` mutates the original Rectangle object |
+| B2 | `bad_permutation_solution()` mutates `self.rectangles` |
+| B3 | `validate()` not implemented (`x=42` placeholder) |
