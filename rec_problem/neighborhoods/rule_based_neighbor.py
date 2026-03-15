@@ -17,10 +17,9 @@ class RuleBasedNeighborhood(NeighborGenerator):
         OR later (lower priority, freeing prime slots for larger rects).
       - All moves are shuffled so the time budget samples broadly.
 
-    Tiebreaker (composite score):
-      Primary:   minimize box count.
-      Secondary: minimize area used in the sparsest box (consolidation).
-      Encoded as: score = n_boxes * (L^2 + 1) + area_used_in_sparsest_box
+    Composite score (minimized):
+      Fitness = B - (Σ fill_i²) / B, where fill_i = used_area_i / L².
+      Squaring rewards polarization and creates a gradient toward box elimination.
 
     Highlighting:
       Each yielded solution has .highlighted_ids = {rect_id} set to the single
@@ -114,14 +113,17 @@ class RuleBasedNeighborhood(NeighborGenerator):
     def _composite_score(self, sol) -> float:
         """
         Lower is better.
-        Primary:   box count (each extra box costs L²+1 points).
-        Secondary: area used in the sparsest box (driving it toward empty → elimination).
+        Fitness = B - (Σ fill_i²) / B
+        where fill_i = used_area_i / L² ∈ [0, 1].
+        Squaring rewards polarization: one box at 99% + one at 1%
+        scores better than two boxes at 50%, guiding toward box elimination.
         """
         if not sol.boxes:
             return 0
-        L = sol.box_length
-        min_used_area = min(L * L - len(b.empty_coordinates) for b in sol.boxes)
-        return len(sol.boxes) * (L * L + 1) + min_used_area
+        B = len(sol.boxes)
+        L2 = sol.box_length * sol.box_length
+        sum_sq = sum(((L2 - len(b.empty_coordinates)) / L2) ** 2 for b in sol.boxes)
+        return B - sum_sq / B
 
     def _get_move_candidates(self, solution, perm) -> list:
         """

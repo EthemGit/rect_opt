@@ -57,7 +57,7 @@ class LocalSearchAlgo(OptimizationAlgo):
     Problem-agnostic Local Search.
     - neighbor_generator: an instance of core.neighbor_generator.NeighborGenerator
     - max_iters: safety cap
-    - stride: how often to append intermediate solutions for the GUI
+    - stride: append a solution to the GUI history every N accepted steps
     - first_improvement: whether to accept first improving neighbor (fast) or best (slower)
     """
 
@@ -83,7 +83,7 @@ class LocalSearchAlgo(OptimizationAlgo):
         sol = self.neighbor_generator.initial_solution(problem)
         sols = [sol]
         it = 0
-        improvements_since_last_record = 0
+        steps_since_last_record = 0
         while it < self.max_iters:
             if self.time_limit_seconds and (time.time() - start_time) > self.time_limit_seconds:
                 break
@@ -95,13 +95,12 @@ class LocalSearchAlgo(OptimizationAlgo):
             if improved is None:
                 break
 
-            if problem.evaluate(improved) < problem.evaluate(sol):
-                improvements_since_last_record += 1
-                if improvements_since_last_record >= self.stride:
-                    sols.append(improved)
-                    improvements_since_last_record = 0
-
             sol = improved
+            steps_since_last_record += 1
+            if steps_since_last_record >= self.stride:
+                sols.append(sol)
+                steps_since_last_record = 0
+
             it += 1
 
         # ensure final solution included
