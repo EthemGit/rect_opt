@@ -1,6 +1,6 @@
 # core/neighbor_generator.py
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional
+from typing import Iterable
 
 
 class NeighborGenerator(ABC):
@@ -18,13 +18,12 @@ class NeighborGenerator(ABC):
     def generate_neighbors(self, problem, current_solution) -> Iterable:
         """Yield/return neighbor Solution objects (do NOT modify current_solution)."""
         raise NotImplementedError
-    
-    @abstractmethod
-    def is_permutation_based(self) -> bool:
-        """Return True if this neighbor generator works on permutation-based solutions."""
-        raise NotImplementedError
 
-    
+    @abstractmethod
+    def initial_solution(self, problem):
+        """Return the starting solution for local search.
+        Each neighborhood decides what a suitable (typically bad) starting point is."""
+        raise NotImplementedError
 
     def best_improving_neighbor(self, problem, sol, *, first_improvement: bool = True, max_neighbors: int = 100):
         """
@@ -39,7 +38,6 @@ class NeighborGenerator(ABC):
         best_val = base_val
         count = 0
         for nb in self.generate_neighbors(problem, sol):
-
             if max_neighbors is not None and count >= max_neighbors:
                 break
             count += 1
@@ -50,17 +48,3 @@ class NeighborGenerator(ABC):
                 if first_improvement:
                     return best
         return best
-
-        count = 0
-        current_sol = sol
-        for potential_sol in self.generate_neighbors(problem, sol):
-            if max_neighbors is not None and count >= max_neighbors:
-                break
-            count += 1
-            if problem.is_better_solution(current_sol, potential_sol):
-                current_sol = potential_sol
-                if first_improvement:
-                    return current_sol
-        if current_sol != sol:
-            return current_sol
-        return None

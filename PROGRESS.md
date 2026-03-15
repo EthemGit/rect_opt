@@ -13,12 +13,12 @@ Track open violations, bugs, and completed work across sessions.
 
 ## VIOLATIONS (must fix to pass)
 
-### V1 — Generic architecture: `is_permutation_based()` leaks problem concept into core `[  ]`
+### V1 — Generic architecture: `is_permutation_based()` leaks problem concept into core `[x]`
 **Where:** `core/neighbor_generator.py:23`, `local_search/local_search_algo.py:79`
 **Problem:** `LocalSearchAlgo.solve()` calls `neighbor_generator.is_permutation_based()` to choose between `bad_solution()` and `bad_permutation_solution()`. Permutations are a rectangle-packing concept — the generic algorithm layer must not know about them.
 **Fix:** Add `initial_solution(problem)` to `NeighborGenerator`. Each concrete neighborhood returns whatever starting solution it needs. `LocalSearchAlgo` just calls `neighbor_generator.initial_solution(problem)`. Remove `is_permutation_based()` entirely.
 
-### V2 — Generic architecture: `neighbors()` and `bad_permutation_solution()` in `Problem` `[  ]`
+### V2 — Generic architecture: `neighbors()`, `bad_solution()`, and `bad_permutation_solution()` in `Problem` `[x]`
 **Where:** `core/problem.py:39,35`
 **Problem:** `neighbors()` is a local-search concept (algorithm-specific) inside the generic `Problem` interface. `bad_permutation_solution()` is also LS-neighborhood-specific in Problem.
 **Fix:** Remove `neighbors()` from `Problem` (it's never called anyway — local search goes through `NeighborGenerator`). Move `bad_permutation_solution()` logic into `RuleBasedNeighborhood.initial_solution()`.

@@ -24,22 +24,6 @@ class Problem(ABC, Generic[S, I]):
         """Process item and return a new/modified solution of type S"""
         pass
 
-    # ----- LOCAL SEARCH -----
-    @abstractmethod
-    def bad_solution(self) -> S:
-        """Return a (bad) starting solution for local search"""
-        pass
-
-    @abstractmethod
-    def bad_permutation_solution(self) -> S:
-        """Return a bad permutation starting solution for permutation based local search neighborhood."""
-        pass
-    
-    @abstractmethod
-    def neighbors(self, sol: S):
-        """Return neighbours of the given solution (list of S)"""
-        pass
-    
     @abstractmethod
     def evaluate(self, sol: S) -> float:
         """Evaluates given solution. Needed for stop condition."""

@@ -62,6 +62,8 @@ class RuleBasedNeighborhood(NeighborGenerator):
         return random.sample(all_rects, k=min(5, len(all_rects)))
 
 
-    def is_permutation_based(self) -> bool:
-        """This neighborhood is permutation-based."""
-        return True
+    def initial_solution(self, problem):
+        """Start from a deliberately bad permutation: smallest-area-first greedy packing."""
+        rects = sorted(problem.rectangles, key=lambda r: r.get_area())  # smallest first → bad packing
+        order_ids = [r.id for r in rects]
+        return problem.construct_from_order(order_ids)

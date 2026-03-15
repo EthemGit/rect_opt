@@ -113,58 +113,7 @@ class RectanglePackingProblem(Problem):
         return new_sol
 
     # ----- LOCAL SEARCH -----------------------------------------------------------------------
-    
-    def bad_solution(self) -> RectanglePackingSolution:
-        """Returns a solution where each box contains exactly 1 rect at (0,0)."""
-        boxes = []
-        for rect in self.rectangles:
-            box = Box(box_length=self.box_length)
-            box.insert_rect(rect)
-            boxes.append(box)
 
-        return RectanglePackingSolution(box_length=self.box_length, rectangles=self.rectangles, boxes=boxes)
-    
-    def bad_permutation_solution(self) -> RectanglePackingSolution:
-        boxes=[]
-
-        self.rectangles = sorted(self.rectangles, key=lambda r: r.get_area())  # sort rectangles by area (smallest to largest)
-
-        for rect in self.rectangles:
-            positioned = False
-            for box in boxes:
-
-                for y in range(box.box_length):
-                    for x in range(box.box_length):
-                        if (x,y) in box.empty_coordinates:
-                            if box.rect_fits_here(coordinates=(x, y), rect=rect):
-                                box.insert_rect(rect=rect, coordinates=(x, y))
-                                positioned = True
-                                break
-
-                            # didn't fit. check if rotated rect fits
-                            if box.rect_fits_size(coordinates=(x, y), length=rect.width, width=rect.length):
-                                r2 = Rectangle(id=rect.id, length=rect.width, width=rect.length)
-                                # rotate rect before positioning it
-                                box.insert_rect(rect=r2, coordinates=(x, y))
-                                positioned = True
-                                break
-                    if positioned:
-                        break
-                
-                if positioned:
-                    break
-
-            if not positioned:
-                new_box = Box(self.box_length)
-                new_box.insert_rect(rect)
-                boxes.append(new_box)
-
-        return RectanglePackingSolution(box_length=self.box_length, rectangles=self.rectangles, boxes=boxes)
-    
-    
-    def neighbors(self, sol: RectanglePackingSolution):
-        pass
-    
     def evaluate(self, sol) -> float :
         """Evaluates given solution. Needed for stop condition."""
         return len(sol.boxes)

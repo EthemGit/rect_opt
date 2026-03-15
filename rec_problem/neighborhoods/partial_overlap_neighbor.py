@@ -16,6 +16,17 @@ class PartialOverlapNeighborhood(NeighborGenerator):
         pass
     # TODO
 
-    def is_permutation_based(self) -> bool:
-        """This neighborhood is NOT permutation-based."""
-        return False
+    def initial_solution(self, problem):
+        """Start from worst-case geometry: one rectangle per box."""
+        from rec_problem.box import Box
+        from rec_problem.rectangle_packing_solution import RectanglePackingSolution
+        boxes = []
+        for rect in problem.rectangles:
+            box = Box(box_length=problem.box_length)
+            box.insert_rect(rect)
+            boxes.append(box)
+        return RectanglePackingSolution(
+            box_length=problem.box_length,
+            rectangles=problem.rectangles,
+            boxes=boxes
+        )

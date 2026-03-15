@@ -71,15 +71,12 @@ class LocalSearchAlgo(OptimizationAlgo):
 
     def solve(self, problem):
         """
-        Starts with a bad solution provided by problem.bad_solution() and iteratively
+        Starts with the initial solution provided by the neighbor generator and iteratively
         asks the neighbor generator for improving neighbors until no improvement
         is possible or max_iters is reached.
         Returns a list of solutions (for GUI / step visualization).
         """
-        if self.neighbor_generator.is_permutation_based():
-            sol = problem.bad_permutation_solution()
-        else:
-            sol = problem.bad_solution()
+        sol = self.neighbor_generator.initial_solution(problem)
         sols = [sol]
         it = 0
         while it < self.max_iters:
