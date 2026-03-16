@@ -394,7 +394,7 @@ class PackingGUI:
                                              stride=stride,
                                              first_improvement=True,
                                              max_neighbors_per_step=2000,
-                                             time_limit_seconds=9.0)
+                                             time_limit_seconds=20.0)
             self._solutions = self.algorithm.solve(self.problem)
             self._compute_step_new_sets()
             if not self._solutions:

@@ -211,7 +211,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
 
         if best_move is None:
             if self.allowed_overlap > 0.0:
-                self.allowed_overlap = max(0.0, self.allowed_overlap - 0.03)
+                self.allowed_overlap = max(0.0, self.allowed_overlap - 0.06)
                 idle_sol = RectanglePackingSolution(sol.boxes, sol.box_length, sol.rectangles, getattr(sol, 'permutation', None))
                 idle_sol.highlighted_ids = set() 
                 return idle_sol
@@ -232,7 +232,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                     return idle_sol
                 return None
 
-        self.allowed_overlap = max(0.0, self.allowed_overlap - 0.003)
+        self.allowed_overlap = max(0.0, self.allowed_overlap - 0.006)
         return self._apply_move(sol, *best_move, problem.box_length)
 
     def _rect_overlap_penalty_fast(self, rect, rect_x, rect_y, box, allowed_overlap):
