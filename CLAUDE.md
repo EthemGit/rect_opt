@@ -75,6 +75,7 @@ The codebase uses a **generic core / concrete problem** split:
 
 - **Progress tracking**: All open violations, bugs, and completed work are tracked in `PROGRESS.md`. **Read it at the start of every session** before doing anything else.
 - **Commit when I tell you to.** Use concise commit messages. No AI co-author tags ever.
+- When i report a bug, do not start by trying to fix it. Instead, start by writing a test that reproduces the bug. Then, have subagents try to fix the bug and prove it with a passing test.
 - **Headless testing**: Use `benchmark.py` (to be built) to validate algorithms without GUI — measures CPU time, objective values, and solution correctness. This also fulfills the Section 8 benchmarking requirement.
 - **Self-validation**: Run headless benchmarks to check correctness and timing rather than asking the user to run the GUI.
 
