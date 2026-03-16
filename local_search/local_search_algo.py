@@ -84,6 +84,7 @@ class LocalSearchAlgo(OptimizationAlgo):
         sols = [sol]
         it = 0
         steps_since_last_record = 0
+        accumulated_highlights = set()
         while it < self.max_iters:
             if self.time_limit_seconds and (time.time() - start_time) > self.time_limit_seconds:
                 break
@@ -95,15 +96,23 @@ class LocalSearchAlgo(OptimizationAlgo):
             if improved is None:
                 break
 
+            if hasattr(improved, 'highlighted_ids'):
+                accumulated_highlights |= improved.highlighted_ids
+
             sol = improved
             steps_since_last_record += 1
             if steps_since_last_record >= self.stride:
+                if accumulated_highlights and hasattr(sol, 'highlighted_ids'):
+                    sol.highlighted_ids = accumulated_highlights
                 sols.append(sol)
                 steps_since_last_record = 0
+                accumulated_highlights = set()
 
             it += 1
 
         # ensure final solution included
         if sols[-1] is not sol:
+            if accumulated_highlights and hasattr(sol, 'highlighted_ids'):
+                sol.highlighted_ids = accumulated_highlights
             sols.append(sol)
         return sols
