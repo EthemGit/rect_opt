@@ -11,13 +11,14 @@ import time
 class OverlapBox(Box):
     """
     Specialized Box strictly for the Partial Overlap Neighborhood.
-    Allows placing rectangles overlapping each other while precisely
-    tracking cell occupancies and intersection percentages.
+    Utilizes an Adjacency Graph to process overlaps in O(N) time instead of O(N^2),
+    preventing massive CPU bottlenecks on instances > 500 rectangles.
     """
     def __init__(self, box_length):
         super().__init__(box_length)
         self.cell_counts = {}
-        self.overlap_pcts = {}
+        self.overlap_edges = {} # Stores pct: (id1, id2) -> pct
+        self.rect_adj = {}      # Adjacency list: id -> set(overlapping_ids)
 
     def insert_rect(self, rect: Rectangle, coordinates=(0,0)) -> None:
         posX, posY = coordinates
@@ -36,6 +37,7 @@ class OverlapBox(Box):
 
         rect.is_positioned = True
         self.my_rects[rect] = (posX, posY)
+        self.rect_adj[rect.id] = set()
 
         a1 = rect.width * rect.length
         for r2, (x2, y2) in list(self.my_rects.items()):
@@ -51,7 +53,9 @@ class OverlapBox(Box):
                     shared_area = (ix_max - ix_min) * (iy_max - iy_min)
                     pct = shared_area / max(a1, a2)
                     k = (min(rect.id, r2.id), max(rect.id, r2.id))
-                    self.overlap_pcts[k] = pct
+                    self.overlap_edges[k] = pct
+                    self.rect_adj[rect.id].add(r2.id)
+                    self.rect_adj[r2.id].add(rect.id)
 
     def remove_rect(self, rect) -> None:
         pos = self.my_rects.get(rect)
@@ -60,9 +64,14 @@ class OverlapBox(Box):
         
         posX, posY = pos
 
-        keys_to_remove =[k for k in self.overlap_pcts if rect.id in k]
-        for k in keys_to_remove:
-            del self.overlap_pcts[k]
+        # O(N) removal using the adjacency list instead of O(N^2) list comprehension
+        for r2_id in self.rect_adj.get(rect.id,[]):
+            k = (min(rect.id, r2_id), max(rect.id, r2_id))
+            self.overlap_edges.pop(k, None)
+            if r2_id in self.rect_adj:
+                self.rect_adj[r2_id].discard(rect.id)
+        
+        self.rect_adj.pop(rect.id, None)
 
         for x in range(rect.width):
             for y in range(rect.length):
@@ -80,16 +89,16 @@ class OverlapBox(Box):
         new_box.my_rects = self.my_rects.copy()
         new_box.empty_coordinates = self.empty_coordinates.copy()
         new_box.cell_counts = self.cell_counts.copy()
-        new_box.overlap_pcts = self.overlap_pcts.copy()
+        new_box.overlap_edges = self.overlap_edges.copy()
+        new_box.rect_adj = {k: set(v) for k, v in self.rect_adj.items()}
         return new_box
 
 
 @dataclass
 class PartialOverlapNeighborhood(NeighborGenerator):
     """
-    Partial Overlap Geometry-based Local Search:
-    - Allows overlaps that decay to 0%.
-    - Mathematically rewards consolidation to eliminate sparse boxes.
+    Partial Overlap Geometry-based Local Search.
+    Highly optimized with graph-based delta tracking.
     """
     max_neighbors: int = 500
     time_budget_per_call_seconds: float = 1.5
@@ -102,22 +111,23 @@ class PartialOverlapNeighborhood(NeighborGenerator):
         self.allowed_overlap = 1.0
         self._did_final_compact = False
         self._restart_count = 0
-        box = OverlapBox(problem.box_length)
-        for rect in problem.rectangles:
-            box.insert_rect(rect, (0, 0))
+
+        chunk_size = 15
+        rects = problem.rectangles
+        boxes = []
+        for i in range(0, len(rects), chunk_size):
+            box = OverlapBox(problem.box_length)
+            for rect in rects[i:i + chunk_size]:
+                box.insert_rect(rect, (0, 0))
+            boxes.append(box)
 
         return RectanglePackingSolution(
-            boxes=[box],
+            boxes=boxes,
             box_length=problem.box_length,
             rectangles=problem.rectangles
         )
 
     def _calc_penalty(self, pct, allowed_overlap):
-        """
-        Mathematical Hierarchy:
-        1. Illegal Overlap: > 10.0 (Instantly triggers opening a new box, which costs 1.0)
-        2. Legal Overlap: 0.5 (Discourages overlaps, but prevents opening new boxes for legal ones)
-        """
         if pct > allowed_overlap:
             return 10.0 + (pct - allowed_overlap) * 100.0
         elif pct > 0:
@@ -125,11 +135,11 @@ class PartialOverlapNeighborhood(NeighborGenerator):
         return 0.0
 
     def best_improving_neighbor(self, problem, sol, *, first_improvement=True, max_neighbors=500):
-        base_score = self._composite_score(sol, self.allowed_overlap)
-        best_move = None
-        best_score = base_score
-        count = 0
         deadline = time.time() + self.time_budget_per_call_seconds if self.time_budget_per_call_seconds > 0 else None
+
+        best_move = None
+        best_delta = 0.0  # By tracking ONLY the delta, we bypass O(N^2) penalty summations entirely
+        count = 0
 
         candidates = self._get_move_candidates(sol, self.allowed_overlap)
 
@@ -138,8 +148,13 @@ class PartialOverlapNeighborhood(NeighborGenerator):
             n_s = len(src_box.my_rects)
             old_x, old_y = src_box.my_rects[rect]
 
-            src_penalty_with = sum(self._calc_penalty(p, self.allowed_overlap) for p in src_box.overlap_pcts.values())
-            src_penalty_without = sum(self._calc_penalty(p, self.allowed_overlap) for k, p in src_box.overlap_pcts.items() if rect.id not in k)
+            # Fast Delta: Retrieve the exact penalty contributed by ONLY the rect that is moving
+            src_rect_penalty = 0.0
+            if rect.id in src_box.rect_adj:
+                for r2_id in src_box.rect_adj[rect.id]:
+                    k = (min(rect.id, r2_id), max(rect.id, r2_id))
+                    pct = src_box.overlap_edges[k]
+                    src_rect_penalty += self._calc_penalty(pct, self.allowed_overlap)
 
             target_boxes = list(enumerate(sol.boxes))
             target_boxes.append((-1, None))
@@ -161,35 +176,31 @@ class PartialOverlapNeighborhood(NeighborGenerator):
 
                     if tgt_box is None:
                         n_t = 0
-                        tgt_penalty_with = 0.0
-                        tgt_penalty_without = 0.0
+                        tgt_rect_penalty = 0.0
                         box_delta = 1.0
                         consolidation_delta = (n_s - n_t - 1) * 0.001
                     elif tgt_box_idx == src_box_idx:
                         n_t = n_s
-                        tgt_penalty_without = src_penalty_without
-                        tgt_penalty_with = tgt_penalty_without + self._rect_overlap_penalty_fast(test_rect, px, py, tgt_box, self.allowed_overlap)
+                        tgt_rect_penalty = self._rect_overlap_penalty_fast(test_rect, px, py, tgt_box, self.allowed_overlap)
                         box_delta = 0.0
                         consolidation_delta = 0.0
                     else:
                         n_t = len(tgt_box.my_rects)
-                        tgt_penalty_without = sum(self._calc_penalty(p, self.allowed_overlap) for p in tgt_box.overlap_pcts.values())
-                        tgt_penalty_with = tgt_penalty_without + self._rect_overlap_penalty_fast(test_rect, px, py, tgt_box, self.allowed_overlap)
+                        tgt_rect_penalty = self._rect_overlap_penalty_fast(test_rect, px, py, tgt_box, self.allowed_overlap)
                         box_delta = 0.0
-                        # Consolidation math: moving to denser box yields a negative (improving) score up to -0.3 max.
                         consolidation_delta = (n_s - n_t - 1) * 0.001
 
                     if n_s == 1 and tgt_box_idx != src_box_idx:
                         box_delta -= 1.0
 
-                    move_penalty_delta = (tgt_penalty_with - tgt_penalty_without) - (src_penalty_with - src_penalty_without)
+                    move_penalty_delta = tgt_rect_penalty - src_rect_penalty
                     pos_delta = (px + py - old_x - old_y) * 0.00001
                     
-                    move_score = base_score + move_penalty_delta + box_delta + consolidation_delta + pos_delta
+                    move_delta = move_penalty_delta + box_delta + consolidation_delta + pos_delta
 
                     count += 1
-                    if move_score < best_score:
-                        best_score = move_score
+                    if move_delta < best_delta:
+                        best_delta = move_delta
                         best_move = (rect, src_box_idx, tgt_box_idx, px, py, rotated)
                         if first_improvement:
                             break
@@ -200,22 +211,18 @@ class PartialOverlapNeighborhood(NeighborGenerator):
 
         if best_move is None:
             if self.allowed_overlap > 0.0:
-                self.allowed_overlap = max(0.0, self.allowed_overlap - 0.02)
+                self.allowed_overlap = max(0.0, self.allowed_overlap - 0.03)
                 idle_sol = RectanglePackingSolution(sol.boxes, sol.box_length, sol.rectangles, getattr(sol, 'permutation', None))
                 idle_sol.highlighted_ids = set() 
                 return idle_sol
             else:
                 compacted = self._compact_all_boxes(sol)
                 if len(compacted.boxes) < len(sol.boxes):
-                    # Compaction eliminated straggler boxes — reset so we compact again
-                    # after the next round of search finds another local optimum.
                     self._did_final_compact = False
                     return compacted
                 if not self._did_final_compact:
                     self._did_final_compact = True
                     return compacted
-                # Both compact rounds produced no box-count improvement.
-                # Restart with a small overlap bump to escape the local optimum.
                 if self._restart_count < 10:
                     self._restart_count += 1
                     self.allowed_overlap = 0.1
@@ -225,75 +232,76 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                     return idle_sol
                 return None
 
-        self.allowed_overlap = max(0.0, self.allowed_overlap - 0.002)
+        self.allowed_overlap = max(0.0, self.allowed_overlap - 0.003)
         return self._apply_move(sol, *best_move, problem.box_length)
 
-    def _composite_score(self, sol, allowed_overlap):
-        score = len(sol.boxes)
-        penalty = 0.0
-        consolidation = 0.0
-        pos_score = 0.0
-        
-        for box in sol.boxes:
-            consolidation -= (len(box.my_rects) ** 2) * 0.0005
-            for rect, (x, y) in box.my_rects.items():
-                pos_score += (x + y) * 0.00001
-            for p in box.overlap_pcts.values():
-                penalty += self._calc_penalty(p, allowed_overlap)
-                
-        return score + penalty + consolidation + pos_score
-
     def _rect_overlap_penalty_fast(self, rect, rect_x, rect_y, box, allowed_overlap):
+        """
+        Extremely optimized collision evaluation using inline AABB boundary checks
+        to bypass the severe overhead of Python's built-in min() and max() functions.
+        """
         penalty = 0.0
         a1 = rect.width * rect.length
+        rw, rl = rect.width, rect.length
+        rx_max = rect_x + rw
+        ry_max = rect_y + rl
+        
         for r2, (x2, y2) in box.my_rects.items():
             if r2.id == rect.id: continue
-            a2 = r2.width * r2.length
-            ix_min = max(rect_x, x2)
-            ix_max = min(rect_x + rect.width, x2 + r2.width)
-            if ix_min < ix_max:
-                iy_min = max(rect_y, y2)
-                iy_max = min(rect_y + rect.length, y2 + r2.length)
-                if iy_min < iy_max:
-                    shared_area = (ix_max - ix_min) * (iy_max - iy_min)
-                    pct = shared_area / max(a1, a2)
-                    penalty += self._calc_penalty(pct, allowed_overlap)
+            
+            # Fast AABB collision check before mathematical bounds calculation
+            if rect_x < x2 + r2.width and rx_max > x2 and rect_y < y2 + r2.length and ry_max > y2:
+                ix_min = rect_x if rect_x > x2 else x2
+                ix_max = rx_max if rx_max < x2 + r2.width else x2 + r2.width
+                iy_min = rect_y if rect_y > y2 else y2
+                iy_max = ry_max if ry_max < y2 + r2.length else y2 + r2.length
+                
+                shared_area = (ix_max - ix_min) * (iy_max - iy_min)
+                a2 = r2.width * r2.length
+                pct = shared_area / (a1 if a1 > a2 else a2)
+                
+                if pct > allowed_overlap:
+                    penalty += 10.0 + (pct - allowed_overlap) * 100.0
+                else: 
+                    penalty += 0.5 + pct * 0.5
         return penalty
 
     def _get_move_candidates(self, sol, allowed_overlap):
         violating_rects = set()
-        for bi, box in enumerate(sol.boxes):
-            for k, p in box.overlap_pcts.items():
-                if p > allowed_overlap:
-                    violating_rects.add((k[0], bi))
-                    violating_rects.add((k[1], bi))
+        
+        # O(1) mathematical bypass: If allowed_overlap is 1.0, there are NO hard violations. 
+        # This completely skips scanning 125,000 edges per step in the beginning.
+        if allowed_overlap < 1.0:
+            for bi, box in enumerate(sol.boxes):
+                count = 0
+                for (id1, id2), p in box.overlap_edges.items():
+                    if p > allowed_overlap:
+                        violating_rects.add((id1, bi))
+                        violating_rects.add((id2, bi))
+                        count += 1
+                        if count > 50: # Cap dictionary iteration to avoid O(N^2) stalls
+                            break
 
         candidates =[]
         for rid, bi in violating_rects:
             rect = next((r for r in sol.boxes[bi].my_rects if r.id == rid), None)
             if rect: candidates.append((rect, bi))
 
-        # Single-rect straggler boxes (highest priority at endgame, ao==0 only)
-        straggler_front = []
+        straggler_front =[]
         if allowed_overlap == 0.0:
             for bi, box in enumerate(sol.boxes):
                 if len(box.my_rects) == 1:
                     for r in box.my_rects:
                         straggler_front.append((r, bi))
 
-        # Sparsest boxes: included when there are no active violations
-        # (endgame consolidation). Putting them BEFORE violations during
-        # the overlap-resolution phase would cause the algorithm to ignore
-        # the large illegal-overlap box, stalling progress.
-        sparse_front = []
+        sparse_front =[]
         if not candidates:
             sorted_by_size = sorted(enumerate(sol.boxes), key=lambda item: len(item[1].my_rects))
             for bi, box in sorted_by_size[:7]:
                 for r in box.my_rects:
                     sparse_front.append((r, bi))
 
-        # Random exploration pool
-        all_rects = []
+        all_rects =[]
         for bi, box in enumerate(sol.boxes):
             for r in box.my_rects:
                 all_rects.append((r, bi))
@@ -301,11 +309,10 @@ class PartialOverlapNeighborhood(NeighborGenerator):
         random.shuffle(candidates)
         random.shuffle(all_rects)
 
-        # Merge: stragglers → violations → sparse (endgame only) → random
         final_candidates = straggler_front + candidates[:50] + sparse_front + all_rects[:50]
         
         seen = set()
-        unique_candidates =[]
+        unique_candidates = []
         for c in final_candidates:
             if c[0].id not in seen:
                 seen.add(c[0].id)
@@ -347,12 +354,17 @@ class PartialOverlapNeighborhood(NeighborGenerator):
             positions.add((random.randint(0, L - rect.length), random.randint(0, L - rect.width), True))
 
         if allowed_overlap == 0.0:
-            for gx in range(L - rect.width + 1):
-                for gy in range(L - rect.length + 1):
-                    positions.add((gx, gy, False))
-            for gx in range(L - rect.length + 1):
-                for gy in range(L - rect.width + 1):
-                    positions.add((gx, gy, True))
+            if L <= 15:
+                for gx in range(L - rect.width + 1):
+                    for gy in range(L - rect.length + 1):
+                        positions.add((gx, gy, False))
+                for gx in range(L - rect.length + 1):
+                    for gy in range(L - rect.width + 1):
+                        positions.add((gx, gy, True))
+            else:
+                for _ in range(50):
+                    positions.add((random.randint(0, L - rect.width), random.randint(0, L - rect.length), False))
+                    positions.add((random.randint(0, L - rect.length), random.randint(0, L - rect.width), True))
 
         if same_box and old_pos:
             positions.discard((old_pos[0], old_pos[1], False))
@@ -390,7 +402,6 @@ class PartialOverlapNeighborhood(NeighborGenerator):
         return new_sol
 
     def _bottom_left_repack(self, rects, box_length):
-        """Pack rects into a fresh OverlapBox using bottom-left fill (area-desc order)."""
         new_box = OverlapBox(box_length)
         for rect in sorted(rects, key=lambda r: r.width * r.length, reverse=True):
             placed = False
@@ -413,15 +424,11 @@ class PartialOverlapNeighborhood(NeighborGenerator):
         return new_box
 
     def _compact_all_boxes(self, sol):
-        """Repack every box with bottom-left fill and return as the final solution step.
-        Also tries to eliminate single-rect straggler boxes by fitting them into other boxes."""
-        new_boxes = [
+        new_boxes =[
             self._bottom_left_repack(list(b.my_rects.keys()), sol.box_length)
             for b in sol.boxes
         ]
 
-        # Eliminate straggler boxes (1 rect) by repacking a target box that
-        # has enough free area to absorb the straggler.
         changed = True
         while changed:
             changed = False
@@ -430,7 +437,6 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                     continue
                 straggler = next(iter(new_boxes[i].my_rects))
                 strag_area = straggler.width * straggler.length
-                # Sort candidates: densest boxes that still have room
                 candidates_j = sorted(
                     [j for j in range(len(new_boxes)) if j != i],
                     key=lambda j: sum(r.width * r.length for r in new_boxes[j].my_rects),
@@ -439,8 +445,8 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                 for j in candidates_j:
                     tgt_used = sum(r.width * r.length for r in new_boxes[j].my_rects)
                     if tgt_used + strag_area > sol.box_length ** 2:
-                        continue  # not enough total area
-                    combined = list(new_boxes[j].my_rects.keys()) + [straggler]
+                        continue
+                    combined = list(new_boxes[j].my_rects.keys()) +[straggler]
                     repacked = self._bottom_left_repack(combined, sol.box_length)
                     if len(repacked.my_rects) == len(combined):
                         new_boxes[j] = repacked
@@ -449,7 +455,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                         break
                 if changed:
                     break
-            new_boxes = [b for b in new_boxes if b is not None]
+            new_boxes =[b for b in new_boxes if b is not None]
 
         new_sol = RectanglePackingSolution(
             boxes=new_boxes, box_length=sol.box_length,
