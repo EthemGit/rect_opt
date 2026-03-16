@@ -396,6 +396,7 @@ class PackingGUI:
                                              max_neighbors_per_step=2000,
                                              time_limit_seconds=20.0)
             self._solutions = self.algorithm.solve(self.problem)
+            self._solutions = self._deduplicate_solutions(self._solutions)
             self._compute_step_new_sets()
             if not self._solutions:
                 messagebox.showwarning("Empty result", "The algorithm returned no solutions.")
@@ -773,6 +774,19 @@ class PackingGUI:
                 for rect, (x, y) in my_rects.items():
                     positions[self._rect_key(rect)] = (box_idx, x, y)
         return positions
+
+    def _deduplicate_solutions(self, solutions):
+        """Remove consecutive solutions that are visually identical (same positions for all rects)."""
+        if not solutions:
+            return solutions
+        deduped = [solutions[0]]
+        prev_pos = self._extract_positions_from_solution(solutions[0])
+        for sol in solutions[1:]:
+            cur_pos = self._extract_positions_from_solution(sol)
+            if cur_pos != prev_pos:
+                deduped.append(sol)
+                prev_pos = cur_pos
+        return deduped
 
     def _compute_step_new_sets(self):
         """For each step: which rects changed.
