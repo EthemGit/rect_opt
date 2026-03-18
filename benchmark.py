@@ -101,7 +101,7 @@ def make_algorithms(time_limit: float) -> List[Tuple[str, callable]]:
         (
             "LocalSearch-RuleBased",
             lambda: LocalSearchAlgo(
-                RuleBasedNeighborhood(max_neighbors=2000),
+                RuleBasedNeighborhood(max_neighbors=200),
                 max_iters=20_000,
                 stride=1,
                 first_improvement=True,

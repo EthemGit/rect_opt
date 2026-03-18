@@ -42,13 +42,12 @@ class GeometryBasedNeighborhood(NeighborGenerator):
                 if tgt_box_idx == src_box_idx:
                     continue
 
-                for y in range(tgt_box.box_length):
-                    for x in range(tgt_box.box_length):
+                rect_rot = Rectangle(id=rect.id, length=rect.width, width=rect.length, is_positioned=rect.is_positioned)
 
+                for (x, y) in tgt_box.get_anchor_positions():
                         # ----- cheap feasibility pre-check (no clone) -----
                         feasible = False
                         rotated = False
-                        rect_rot = Rectangle(id=rect.id, length=rect.width, width=rect.length, is_positioned=rect.is_positioned)
                         #  simple check if target box has space here
                         feasible = tgt_box.rect_fits_here((x, y), rect)
                         # check if rotated rect fits

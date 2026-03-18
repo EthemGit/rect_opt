@@ -84,12 +84,12 @@ Track open violations, bugs, and completed work across sessions.
 
 ## PERFORMANCE
 
-### P1 — 1000 rectangles within 10 seconds target `[  ]`
-**Status:** UNTESTED — no benchmark harness yet. After V6 is done, run verification mode.
-**Risk areas:**
-- `process_item()` and `construct_from_order()` iterate all L² cells per box per rectangle → O(n × b × L²).
-- `Box.empty_coordinates` starts as a full set of L² cells — for large L this is expensive to copy.
-- `clone()` does `copy.deepcopy(self.boxes)` — deep copy of all boxes each greedy step (only needed for the GUI step list).
+### P1 — 1000 rectangles within 10 seconds target `[x]`
+**Status:** Satisfied on user's notebook (Greedy ~2s for 1000 rects).
+**Fixes applied:**
+- `Box.get_anchor_positions()`: O(L²) position scan → O(k) anchor scan in `process_item()`, `construct_from_order()`, and `geometry_based_neighbor`.
+- `Box.clone()`: replaced `Box(L)` init (creates L² tuples) with `Box.__new__(Box)`.
+- `RectanglePackingSolution.clone()`: replaced `copy.deepcopy(boxes)` with `[b.clone() for b in self.boxes]`.
 
 ---
 

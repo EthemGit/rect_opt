@@ -97,16 +97,14 @@ class RectanglePackingProblem(Problem):
         new_sol = sol.clone()
 
         for box in new_sol.boxes:
-            # check if there is a gap that fits the given rect or its rotation
-            for y in range(box_length):
-                for x in range(box_length):
-                    if (x,y) in box.empty_coordinates:
-                        if box.rect_fits_here(coordinates=(x, y), rect=item):
-                            box.insert_rect(rect=item, coordinates=(x, y))
-                            return new_sol
-                        if box.rect_fits_here(coordinates=(x, y), rect=item_rot):
-                            box.insert_rect(rect=item_rot, coordinates=(x, y))
-                            return new_sol
+            # only check anchor positions — O(n_placed) instead of O(L²)
+            for (x, y) in box.get_anchor_positions():
+                if box.rect_fits_here(coordinates=(x, y), rect=item):
+                    box.insert_rect(rect=item, coordinates=(x, y))
+                    return new_sol
+                if box.rect_fits_here(coordinates=(x, y), rect=item_rot):
+                    box.insert_rect(rect=item_rot, coordinates=(x, y))
+                    return new_sol
         # Create new box if we cannot place rect in existing box
         new_box = Box(box_length)
         new_box.insert_rect(rect=item)
@@ -173,8 +171,8 @@ class RectanglePackingProblem(Problem):
             # skipping occupied cells — better placement quality than full grid scan
             for b in boxes:
                 if len(b.empty_coordinates) < rect_area:
-                    continue  # not enough free cells — skip without sorting
-                for (x, y) in sorted(b.empty_coordinates):
+                    continue  # not enough free cells — skip
+                for (x, y) in b.get_anchor_positions():
                     L1, W1 = t.length, t.width
                     if b.rect_fits_size(coordinates=(x, y), length=L1, width=W1):
                         r1 = Rectangle(id=t.id, length=t.length, width=t.width)

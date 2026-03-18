@@ -113,14 +113,28 @@ class Box(Item):
 
             return True
     
+    def get_anchor_positions(self) -> list:
+        """Candidate top-left positions for placing a new rectangle.
+
+        Returns (0,0) plus the right and bottom edge of every placed rect,
+        sorted row-major (y first, then x) for a bottom-left-fill-like scan.
+        This is O(n_placed) instead of O(L²).
+        """
+        anchors = {(0, 0)}
+        for rect, (px, py) in self.my_rects.items():
+            anchors.add((px + rect.width, py))   # right of this rect
+            anchors.add((px, py + rect.length))  # below this rect
+        return sorted(anchors)
+
     # get all rects in this box
     def get_rects(self) -> List[Rectangle]:
         return list(self.my_rects.keys())
 
     # lightweight clone (instead of deepcopy)
     def clone(self):
-        new_box = Box(self.box_length)
-        # Copy occupied rects
+        # Use __new__ to skip __init__ — avoids creating L² tuples only to overwrite them
+        new_box = Box.__new__(Box)
+        new_box.box_length = self.box_length
         new_box.my_rects = self.my_rects.copy()
         new_box.empty_coordinates = self.empty_coordinates.copy()
         return new_box

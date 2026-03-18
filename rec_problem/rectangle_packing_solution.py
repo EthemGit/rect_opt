@@ -70,9 +70,9 @@ class RectanglePackingSolution(Solution):
 
     def clone(self):
         """ Creates an identical solution"""
-        deepcopy_boxes = copy.deepcopy(self.boxes)
+        cloned_boxes = [b.clone() for b in self.boxes]
         copy_sol = RectanglePackingSolution(
-            boxes=deepcopy_boxes,
+            boxes=cloned_boxes,
             box_length=self.box_length,
             rectangles=self.rectangles,
             permutation=self.permutation
