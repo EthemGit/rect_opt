@@ -143,16 +143,27 @@ class PackingGUI:
         self.in_rect_count.set(10)
         self.in_rect_count.grid(row=0, column=3, padx=(4, 12), sticky="w")
 
-        # rectangle min / max size
-        ttk.Label(controls, text="Rect size min/max:", font=self.font).grid(row=0, column=4, sticky="w")
-        self.in_rect_min = ttk.Spinbox(controls, from_=1, to=10000, width=6)
-        self.in_rect_min.set(1)
-        self.in_rect_min.grid(row=0, column=5, padx=4, sticky="w")
-        self.in_rect_max = ttk.Spinbox(controls, from_=1, to=10000, width=6)
-        self.in_rect_max.set(5)
-        self.in_rect_max.grid(row=0, column=6, padx=(4, 12), sticky="w")
+        # rectangle width min / max
+        ttk.Label(controls, text="Width min/max:", font=self.font).grid(row=0, column=4, sticky="w")
+        self.in_min_width = ttk.Spinbox(controls, from_=1, to=10000, width=6)
+        self.in_min_width.set(1)
+        self.in_min_width.grid(row=0, column=5, padx=4, sticky="w")
+        self.in_max_width = ttk.Spinbox(controls, from_=1, to=10000, width=6)
+        self.in_max_width.set(5)
+        self.in_max_width.grid(row=0, column=6, padx=(4, 12), sticky="w")
 
-        ttk.Button(controls, text="Generate", command=self._on_generate).grid(row=0, column=9, sticky="e")
+        # rectangle height min / max
+        ttk.Label(controls, text="Height min/max:", font=self.font).grid(row=1, column=4, sticky="w")
+        self.in_min_height = ttk.Spinbox(controls, from_=1, to=10000, width=6)
+        self.in_min_height.set(1)
+        self.in_min_height.grid(row=1, column=5, padx=4, sticky="w")
+        self.in_max_height = ttk.Spinbox(controls, from_=1, to=10000, width=6)
+        self.in_max_height.set(5)
+        self.in_max_height.grid(row=1, column=6, padx=(4, 12), sticky="w")
+
+        ttk.Button(controls, text="Generate", command=self._on_generate).grid(
+            row=0, column=9, rowspan=2, sticky="e"
+        )
 
         # Table of Rects
         table_frame = ttk.Frame(left)
@@ -179,20 +190,25 @@ class PackingGUI:
         try:
             box_length = int(self.in_box_length.get())
             rect_count = int(self.in_rect_count.get())
-            rect_min = int(self.in_rect_min.get())
-            rect_max = int(self.in_rect_max.get())
+            min_width = int(self.in_min_width.get())
+            max_width = int(self.in_max_width.get())
+            min_height = int(self.in_min_height.get())
+            max_height = int(self.in_max_height.get())
 
-            if rect_min > rect_max:
-                raise ValueError("Rect size min must be ≤ max.")
-            
-            if rect_max > box_length:
-                raise ValueError("Rect sizes must be ≤ box length.")                
+            if min_width > max_width:
+                raise ValueError("Width min must be ≤ max.")
+            if min_height > max_height:
+                raise ValueError("Height min must be ≤ max.")
+            if max_width > box_length or max_height > box_length:
+                raise ValueError("Rect sizes must be ≤ box length.")
 
             self.problem = RectanglePackingProblem(
                 box_length=box_length,
                 rect_number=rect_count,
-                rect_min_size=rect_min,
-                rect_max_size=rect_max,
+                min_width=min_width,
+                max_width=max_width,
+                min_height=min_height,
+                max_height=max_height,
             )
 
             self._refresh_table()

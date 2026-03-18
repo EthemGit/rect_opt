@@ -32,7 +32,7 @@ Track open violations, bugs, and completed work across sessions.
 - Violations are heavily penalized in the objective function.
 - Must guarantee a 100% overlap-free valid solution at the end.
 
-### V4 — Instance generator: missing separate width/height bounds `[  ]`
+### V4 — Instance generator: missing separate width/height bounds `[x]`
 **Where:** `rec_problem/rectangle_packing_problem.py:32-38`, `main.py:147-153`
 **Problem:** Generator takes a single `rect_min_size`/`rect_max_size` pair. Requirements Section 4 explicitly require separate `min_width, max_width, min_height, max_height`.
 **Fix:** Add four parameters to `RectanglePackingProblem.__init__()` and update the GUI spinboxes.
@@ -42,8 +42,8 @@ Track open violations, bugs, and completed work across sessions.
 **Problem:** `color_new = "#0a7d24"` (dark green) and `color_old = "#b8e6b8"` (light green). Requirements Section 7 explicitly mandate Yellow/Blue for accessibility.
 **Fix:** Replace with Yellow (`#f5c400` or similar) for new rects and Blue (`#1a73e8` or similar) for old rects (or swap — just must be Yellow/Blue, not Red/Green).
 
-### V6 — Benchmarking harness missing `[  ]`
-**Where:** Nowhere — `benchmark.py` does not exist.
+### V6 — Benchmarking harness missing `[x]`
+**Where:** `benchmark.py` (new file).
 **Problem:** Section 8 requires a standalone test environment (separate from GUI) that:
 - Takes a sequence of tuples `(num_instances, num_rects, min_w, max_w, min_h, max_h, box_length)`.
 - Runs all algorithms on each instance.
@@ -64,7 +64,7 @@ Track open violations, bugs, and completed work across sessions.
 **Problem:** `self.rectangles = sorted(self.rectangles, ...)` permanently reorders the problem's rectangle list.
 **Fix:** Sort a local copy: `rects = sorted(self.rectangles, ...)`.
 
-### B3 — `validate()` not implemented `[  ]`
+### B3 — `validate()` not implemented `[x]`
 **Where:** `rec_problem/rectangle_packing_solution.py:26-40`
 **Problem:** Body is `x=42` — no validation logic. Should check: all rects inside box bounds, no illegal overlaps beyond `permitted_error`.
 
@@ -106,10 +106,10 @@ Track open violations, bugs, and completed work across sessions.
 |---|---|---|
 | 1 | V1+V2 | Core architecture — examiner checks this first; easiest to fail on |
 | 2 | B1+B2 | Silent correctness bugs that affect all algorithms |
-| 3 | V4 | Instance generator fix is small and unblocks benchmark |
-| 4 | V6 | Benchmark harness — needed to prove performance and validate correctness |
-| 5 | P1 | Run benchmark; tune if needed |
+| 3 | ~~V4~~ | **done** — 4 separate width/height params in problem + GUI |
+| 4 | ~~V6~~ | **done** — `benchmark.py` with demo + verify mode |
+| 5 | P1 | Run benchmark; verify 1000 rects ≤ 10s |
 | 6 | V3 | Partial overlap neighborhood — most complex to implement |
 | 7 | V5 | GUI colors — cosmetic but explicitly required |
-| 8 | B3 | Validate() — needed for benchmark correctness checking |
+| 8 | ~~B3~~ | **done** — `validate()` implemented with bounds + overlap check |
 | 9 | M1+M2 | Cleanup |

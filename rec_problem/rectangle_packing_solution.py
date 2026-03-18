@@ -23,21 +23,42 @@ class RectanglePackingSolution(Solution):
         # store as list[int] of rectangle IDs, never as mutable Rectangle instances
         self.permutation = list(permutation) if permutation is not None else [r.id for r in rectangles]
     
-    def validate(self, permitted_error: float):
-        """ 
-        Checks whether solution is permissible
-        
+    def validate(self, permitted_error: float = 0.0):
+        """
+        Checks whether solution is permissible.
+
         Args:
             permitted_error: float
-                Permitted overlap in percentage ( = shared area / max(area_rect1, area_rect2) ).
+                Permitted overlap as fraction (currently unused; any overlap raises for >0).
+
+        Raises:
+            ValueError if any rect is out of bounds or rects overlap beyond permitted_error.
         """
-
-        # 1) alle platzierten Rechtecke sind innerhalb ihrer Box  
-        # TODO
-
-        # 2) Überlappungen nur so viel wie zulässig
-        # TODO
-        x=42
+        for box in self.boxes:
+            occupied: dict = {}  # cell -> rect_id
+            for rect, (px, py) in box.my_rects.items():
+                # bounds check
+                if px < 0 or py < 0:
+                    raise ValueError(
+                        f"Rect {rect.id} has negative coordinates ({px},{py})"
+                    )
+                if px + rect.width > self.box_length:
+                    raise ValueError(
+                        f"Rect {rect.id} exceeds box width: x={px}, width={rect.width}, box_length={self.box_length}"
+                    )
+                if py + rect.length > self.box_length:
+                    raise ValueError(
+                        f"Rect {rect.id} exceeds box length: y={py}, length={rect.length}, box_length={self.box_length}"
+                    )
+                # overlap check via cell occupation
+                for dx in range(rect.width):
+                    for dy in range(rect.length):
+                        cell = (px + dx, py + dy)
+                        if cell in occupied:
+                            raise ValueError(
+                                f"Overlap: rect {rect.id} vs rect {occupied[cell]} at cell {cell}"
+                            )
+                        occupied[cell] = rect.id
 
     def all_rects_positioned(self):
         """ Checks whether all rects are positioned in a box"""

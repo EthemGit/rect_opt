@@ -30,16 +30,20 @@ class RectanglePackingProblem(Problem):
     """
 
     def __init__(
-        self, 
+        self,
         box_length: int,
         rect_number: int,
-        rect_min_size: int,
-        rect_max_size: int
+        min_width: int,
+        max_width: int,
+        min_height: int,
+        max_height: int,
     ):
         # Sanity checks
         assert box_length > 0, "Box length must be positive"
         assert rect_number > 0, "Number of rectangles must be positive"
-        assert 0 < rect_min_size <= rect_max_size, "Invalid rectangle size bounds"
+        assert 0 < min_width <= max_width, "Invalid width bounds"
+        assert 0 < min_height <= max_height, "Invalid height bounds"
+        assert max_width <= box_length and max_height <= box_length, "Rect larger than box"
 
         # initialise attributes
         self.box_length: int = box_length
@@ -47,8 +51,8 @@ class RectanglePackingProblem(Problem):
 
         # create random rectangles
         for idx in range(rect_number):
-            length = random.randint(rect_min_size, rect_max_size)
-            width = random.randint(rect_min_size, rect_max_size)
+            length = random.randint(min_height, max_height)
+            width = random.randint(min_width, max_width)
             
             rect = Rectangle(length=length, width=width, id=idx)
             self.rectangles.append(rect)
