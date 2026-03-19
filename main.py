@@ -612,7 +612,7 @@ class PackingGUI:
 
         outer = ttk.Frame(win, padding=0)
         outer.pack(fill="both", expand=True)
-        outer.rowconfigure(1, weight=1)   # row 1 holds canvas
+        outer.rowconfigure(2, weight=1)   # row 2 holds canvas
         outer.columnconfigure(0, weight=1)
 
         # Header with total box count
@@ -622,17 +622,32 @@ class PackingGUI:
         )
         header.grid(row=0, column=0, columnspan=2, sticky="ew")
 
+        # Color legend (always visible under header)
+        legend = ttk.Frame(outer, padding=(8, 2, 8, 6))
+        legend.grid(row=1, column=0, columnspan=2, sticky="ew")
+
+        ttk.Label(legend, text="Legend:", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, padx=(0, 10), sticky="w")
+
+        tk.Label(legend, bg=self.color_new, width=2, relief="solid", borderwidth=1).grid(row=0, column=1, padx=(0, 4), sticky="w")
+        ttk.Label(legend, text="Changed box").grid(row=0, column=2, padx=(0, 12), sticky="w")
+
+        tk.Label(legend, bg=self.color_moved, width=2, relief="solid", borderwidth=1).grid(row=0, column=3, padx=(0, 4), sticky="w")
+        ttk.Label(legend, text="Moved in same box").grid(row=0, column=4, padx=(0, 12), sticky="w")
+
+        tk.Label(legend, bg=self.color_old, width=2, relief="solid", borderwidth=1).grid(row=0, column=5, padx=(0, 4), sticky="w")
+        ttk.Label(legend, text="Unchanged").grid(row=0, column=6, sticky="w")
+
         # Canvas + vertical scrollbar
         can = tk.Canvas(outer, bg="white", highlightthickness=1, highlightbackground="#ddd")
         vbar = ttk.Scrollbar(outer, orient="vertical", command=can.yview)
         can.configure(yscrollcommand=vbar.set)
 
-        can.grid(row=1, column=0, sticky="nsew")
-        vbar.grid(row=1, column=1, sticky="ns")
+        can.grid(row=2, column=0, sticky="nsew")
+        vbar.grid(row=2, column=1, sticky="ns")
 
         # --- Navigation toolbar (Prev / Next + Zoom) ---
         toolbar = ttk.Frame(outer, padding=(8, 6))
-        toolbar.grid(row=2, column=0, columnspan=2, sticky="ew")
+        toolbar.grid(row=3, column=0, columnspan=2, sticky="ew")
         toolbar.columnconfigure(0, weight=0)
         toolbar.columnconfigure(1, weight=0)
         toolbar.columnconfigure(2, weight=1)  # spacer
