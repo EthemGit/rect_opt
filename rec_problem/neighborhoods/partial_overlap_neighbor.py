@@ -217,6 +217,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                 return idle_sol
             else:
                 compacted = self._compact_all_boxes(sol)
+                compacted.is_compacting = True
                 if len(compacted.boxes) < len(sol.boxes):
                     self._did_final_compact = False
                     return compacted
@@ -229,6 +230,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                     self._did_final_compact = False
                     idle_sol = RectanglePackingSolution(sol.boxes, sol.box_length, sol.rectangles, getattr(sol, 'permutation', None))
                     idle_sol.highlighted_ids = set()
+                    idle_sol.is_reheating = True
                     return idle_sol
                 return None
 

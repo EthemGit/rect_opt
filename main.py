@@ -34,9 +34,14 @@ class PackingGUI:
 
         # colors
         # colors
-        self.color_new = "#0a7d24"
-        self.color_old = "#b8e6b8"
+        self.color_new = "#07631c"           # dark green - changed box
+        self.color_moved = "#5aa86a"         # middle green - position changed only
+        self.color_old = "#b8e6b8"           # light green - unchanged
         self.color_outline = "#1a73e8"
+
+        # per-step metadata
+        self._step_new_keys = None           # list[set], same length as self._solutions
+        self._step_change_types = None       # list[dict], maps rect_id -> 'box_changed' or 'position_only'
 
         # per-step metadata
         self._step_new_keys = None    # list[set], same length as self._solutions
@@ -549,12 +554,27 @@ class PackingGUI:
                 px1 = px0 + int(getattr(rect, "width", 0) * scale)
                 py1 = py0 + int(getattr(rect, "length", 0) * scale)
 
-                # New vs old coloring
+                # Coloring: changed box (dark green) vs position-only (middle green) vs unchanged (light green)
                 key = getattr(rect, "id", None)
                 if key is None:
                     key = id(rect)  # fallback, shouldn't be needed with your dataclass
-                is_new = (new_set is not None) and (key in new_set)
-                fill_color = color_new if is_new else color_old
+                
+                fill_color = color_old  # default: unchanged
+                if new_set is not None and key in new_set:
+                    # Rect changed - check what type of change
+                    change_types = None
+                    if getattr(self, "_step_change_types", None) and 0 <= self._sol_index < len(self._step_change_types):
+                        change_types = self._step_change_types[self._sol_index]
+                    
+                    if change_types and key in change_types:
+                        change_type = change_types[key]
+                        if change_type == 'box_changed':
+                            fill_color = color_new  # dark green
+                        elif change_type == 'position_only':
+                            fill_color = getattr(self, "color_moved", "#61b16e")  # middle green
+                    else:
+                        # Fallback for highlighted_ids (assume box change)
+                        fill_color = color_new
 
                 c.create_rectangle(px0, py0, px1, py1, fill=fill_color, outline=color_outline, width=2)
                 c.create_text(
@@ -738,7 +758,33 @@ class PackingGUI:
         algo = "Greedy" if self.primary_choice.get() == "greedy" else "Local Search"
         algo_specification = mapping.get(self.secondary_choice.get(), "Unknown")
 
-        self.solution_header_var.set(f"{step_txt}  —  Boxes: {n_boxes}  —  Algorithm: {algo} {algo_specification}")
+        extra = ""
+        if self.primary_choice.get() == "local" and self.secondary_choice.get() == "partial_overlap":
+            is_compacting = getattr(sol, "is_compacting", False)
+            is_reheating = getattr(sol, "is_reheating", False)
+            
+            if is_compacting:
+                extra = f"  —  Compacting the boxes"
+            elif is_reheating:
+                allowed_overlap = getattr(sol, "allowed_overlap", None)
+                if allowed_overlap is not None:
+                    try:
+                        overlap_pct = max(0.0, min(1.0, float(allowed_overlap))) * 100.0
+                        extra = f"  —  {overlap_pct:.1f}% - Reheating after compaction"
+                    except (TypeError, ValueError):
+                        pass
+            else:
+                allowed_overlap = getattr(sol, "allowed_overlap", None)
+                if allowed_overlap is not None:
+                    try:
+                        overlap_pct = max(0.0, min(1.0, float(allowed_overlap))) * 100.0
+                        extra = f"  —  Allowed overlap: {overlap_pct:.1f}%"
+                    except (TypeError, ValueError):
+                        pass
+
+        self.solution_header_var.set(
+            f"{step_txt}  —  Boxes: {n_boxes}  —  Algorithm: {algo} {algo_specification}{extra}"
+        )
 
         self._update_nav_buttons()
         self._sync_stepbar() # step bar in sync
@@ -797,34 +843,83 @@ class PackingGUI:
             return solutions
         deduped = [solutions[0]]
         prev_pos = self._extract_positions_from_solution(solutions[0])
+        pending_compacting = bool(getattr(solutions[0], "is_compacting", False))
+        pending_reheating = bool(getattr(solutions[0], "is_reheating", False))
         for sol in solutions[1:]:
             cur_pos = self._extract_positions_from_solution(sol)
+
+            # Accumulate important states from skipped frames and show them on next displayed frame.
+            pending_compacting = pending_compacting or bool(getattr(sol, "is_compacting", False))
+            pending_reheating = pending_reheating or bool(getattr(sol, "is_reheating", False))
+
             if cur_pos != prev_pos:
+                if pending_compacting:
+                    sol.is_compacting = True
+                if pending_reheating:
+                    sol.is_reheating = True
                 deduped.append(sol)
                 prev_pos = cur_pos
+                pending_compacting = False
+                pending_reheating = False
+
+        # If the stream ended with repeated frames that only carried state changes,
+        # attach the pending state to the final displayed frame.
+        if deduped:
+            if pending_compacting:
+                deduped[-1].is_compacting = True
+            if pending_reheating:
+                deduped[-1].is_reheating = True
         return deduped
 
     def _compute_step_new_sets(self):
-        """For each step: which rects changed.
+        """For each step: which rects changed and what type of change.
         If the solution carries .highlighted_ids (set by the neighborhood for precise
         per-move highlighting), use that directly. Otherwise fall back to comparing
-        (box_idx, x, y) positions between consecutive steps."""
+        (box_idx, x, y) positions between consecutive steps.
+        
+        Also tracks whether each rect changed box or just position."""
         self._step_new_keys = []
+        self._step_change_types = []
         prev_positions = {}
         for sol in (self._solutions or []):
+            change_type_dict = {}  # maps rect_id -> 'box_changed' or 'position_only'
+            cur_positions = self._extract_positions_from_solution(sol)
+            is_compacting = bool(getattr(sol, "is_compacting", False))
+            
             highlighted = getattr(sol, 'highlighted_ids', None)
-            if highlighted is not None:
+            # During compaction we must compare displayed-step deltas, not neighborhood highlights.
+            if highlighted is not None and not is_compacting:
+                # When highlighted_ids is provided, assume all are box changes
+                # (typical for single-move neighborhood operations)
                 self._step_new_keys.append(set(highlighted))
+                for rid in highlighted:
+                    change_type_dict[rid] = 'box_changed'
                 # keep prev_positions in sync for any subsequent fallback steps
-                prev_positions = self._extract_positions_from_solution(sol)
+                prev_positions = cur_positions
             else:
-                cur_positions = self._extract_positions_from_solution(sol)
-                changed = {
-                    rid for rid, pos in cur_positions.items()
-                    if prev_positions.get(rid) != pos
-                }
+                changed = set()
+                for rid, pos in cur_positions.items():
+                    if prev_positions.get(rid) != pos:
+                        changed.add(rid)
+                        # Determine if this is a box change or position-only change
+                        prev_pos = prev_positions.get(rid)
+                        if prev_pos is None:
+                            # Rect didn't exist before (shouldn't happen normally)
+                            change_type_dict[rid] = 'box_changed'
+                        else:
+                            prev_box_idx = prev_pos[0]
+                            cur_box_idx = pos[0]
+                            if prev_box_idx != cur_box_idx:
+                                # Box changed
+                                change_type_dict[rid] = 'box_changed'
+                            else:
+                                # Same box, only position changed
+                                change_type_dict[rid] = 'position_only'
+                
                 self._step_new_keys.append(changed)
                 prev_positions = cur_positions
+            
+            self._step_change_types.append(change_type_dict)
 
     def _on_stepbar_drag(self, value_str):
         if self._stepbar_updating or not self._solutions:

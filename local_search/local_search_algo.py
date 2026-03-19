@@ -69,6 +69,23 @@ class LocalSearchAlgo(OptimizationAlgo):
         self.max_neighbors_per_step = max_neighbors_per_step
         self.time_limit_seconds = time_limit_seconds
 
+    def _attach_step_metadata(self, sol):
+        """Attach neighborhood metadata needed by the GUI to a solution snapshot."""
+        allowed_overlap = getattr(self.neighbor_generator, "allowed_overlap", None)
+        if allowed_overlap is not None:
+            try:
+                sol.allowed_overlap = float(allowed_overlap)
+            except (TypeError, ValueError):
+                pass
+        
+        # Capture compacting and reheating flags if present
+        is_compacting = getattr(sol, "is_compacting", False)
+        is_reheating = getattr(sol, "is_reheating", False)
+        if is_compacting:
+            sol.is_compacting = True
+        if is_reheating:
+            sol.is_reheating = True
+
 
     def solve(self, problem):
         """
@@ -81,10 +98,13 @@ class LocalSearchAlgo(OptimizationAlgo):
         start_time = time.time()
 
         sol = self.neighbor_generator.initial_solution(problem)
+        self._attach_step_metadata(sol)
         sols = [sol]
         it = 0
         steps_since_last_record = 0
         accumulated_highlights = set()
+        pending_compacting = False
+        pending_reheating = False
         while it < self.max_iters:
             if self.time_limit_seconds and (time.time() - start_time) > self.time_limit_seconds:
                 break
@@ -100,13 +120,25 @@ class LocalSearchAlgo(OptimizationAlgo):
                 accumulated_highlights |= improved.highlighted_ids
 
             sol = improved
+            self._attach_step_metadata(sol)
             steps_since_last_record += 1
+
+            # Carry compaction/reheating state until the next recorded GUI step.
+            pending_compacting = pending_compacting or bool(getattr(sol, 'is_compacting', False))
+            pending_reheating = pending_reheating or bool(getattr(sol, 'is_reheating', False))
+
             if steps_since_last_record >= self.stride:
                 if accumulated_highlights and hasattr(sol, 'highlighted_ids'):
                     sol.highlighted_ids = accumulated_highlights
+                if pending_compacting:
+                    sol.is_compacting = True
+                if pending_reheating:
+                    sol.is_reheating = True
                 sols.append(sol)
                 steps_since_last_record = 0
                 accumulated_highlights = set()
+                pending_compacting = False
+                pending_reheating = False
 
             it += 1
 
@@ -114,5 +146,12 @@ class LocalSearchAlgo(OptimizationAlgo):
         if sols[-1] is not sol:
             if accumulated_highlights and hasattr(sol, 'highlighted_ids'):
                 sol.highlighted_ids = accumulated_highlights
+            pending_compacting = pending_compacting or bool(getattr(sol, 'is_compacting', False))
+            pending_reheating = pending_reheating or bool(getattr(sol, 'is_reheating', False))
+            if pending_compacting:
+                sol.is_compacting = True
+            if pending_reheating:
+                sol.is_reheating = True
+            self._attach_step_metadata(sol)
             sols.append(sol)
         return sols
