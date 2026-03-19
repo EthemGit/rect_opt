@@ -135,7 +135,8 @@ class PartialOverlapNeighborhood(NeighborGenerator):
         return 0.0
 
     def best_improving_neighbor(self, problem, sol, *, first_improvement=True, max_neighbors=500):
-        deadline = time.time() + self.time_budget_per_call_seconds if self.time_budget_per_call_seconds > 0 else None
+        start_time = time.time()
+        deadline = start_time + self.time_budget_per_call_seconds if self.time_budget_per_call_seconds > 0 else None
 
         best_move = None
         best_delta = 0.0  # By tracking ONLY the delta, we bypass O(N^2) penalty summations entirely
@@ -211,7 +212,17 @@ class PartialOverlapNeighborhood(NeighborGenerator):
 
         if best_move is None:
             if self.allowed_overlap > 0.0:
-                self.allowed_overlap = max(0.0, self.allowed_overlap - 0.06)
+                # Option B: Accelerate overlap reduction under time pressure
+                time_elapsed = time.time() - start_time
+                time_remaining = (deadline - time.time()) if deadline else float('inf')
+                
+                # If less than 2 seconds remain, drastically reduce allowed_overlap
+                if time_remaining < 2.0 and deadline is not None:
+                    reduction = 0.15  # Aggressive reduction when time is critical
+                else:
+                    reduction = 0.06  # Normal reduction
+                
+                self.allowed_overlap = max(0.0, self.allowed_overlap - reduction)
                 idle_sol = RectanglePackingSolution(sol.boxes, sol.box_length, sol.rectangles, getattr(sol, 'permutation', None))
                 idle_sol.highlighted_ids = set() 
                 return idle_sol
@@ -234,7 +245,14 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                     return idle_sol
                 return None
 
-        self.allowed_overlap = max(0.0, self.allowed_overlap - 0.006)
+        # Option B: Accelerate overlap reduction under time pressure when a move is found
+        time_remaining = (deadline - time.time()) if deadline else float('inf')
+        if time_remaining < 2.0 and deadline is not None:
+            reduction = 0.015  # Aggressive reduction when time is critical
+        else:
+            reduction = 0.006  # Normal reduction
+        
+        self.allowed_overlap = max(0.0, self.allowed_overlap - reduction)
         return self._apply_move(sol, *best_move, problem.box_length)
 
     def _rect_overlap_penalty_fast(self, rect, rect_x, rect_y, box, allowed_overlap):

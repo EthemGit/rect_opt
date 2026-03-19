@@ -65,10 +65,10 @@ class BenchmarkResult:
     algo_name: str
     num_rects: int
     box_length: int
-    instance_id: int
-    objective: int
-    cpu_thread_s: float
-    valid: bool
+    test_instance: int
+    number_boxes: int
+    cpu_time_seconds: float
+    is_valid: bool
     error: str = ""
 
 
@@ -184,10 +184,10 @@ def run_spec(
                     algo_name=algo_name,
                     num_rects=num_rects,
                     box_length=L,
-                    instance_id=inst_id,
-                    objective=objective,
-                    cpu_thread_s=cpu_s,
-                    valid=valid,
+                    test_instance=inst_id,
+                    number_boxes=objective,
+                    cpu_time_seconds=cpu_s,
+                    is_valid=valid,
                     error=error,
                 ))
 
@@ -199,10 +199,10 @@ def run_spec(
                     algo_name=algo_name,
                     num_rects=num_rects,
                     box_length=L,
-                    instance_id=inst_id,
-                    objective=-1,
-                    cpu_thread_s=cpu_s,
-                    valid=False,
+                    test_instance=inst_id,
+                    number_boxes=-1,
+                    cpu_time_seconds=cpu_s,
+                    is_valid=False,
                     error=str(exc),
                 ))
 
@@ -218,13 +218,13 @@ def print_summary(results: List[BenchmarkResult]) -> None:
 
     print("\n--- Summary ---")
     for algo_name, rs in grouped.items():
-        valid_rs = [r for r in rs if r.valid and r.objective >= 0]
+        valid_rs = [r for r in rs if r.is_valid and r.number_boxes >= 0]
         if valid_rs:
-            avg_obj = sum(r.objective for r in valid_rs) / len(valid_rs)
-            min_obj = min(r.objective for r in valid_rs)
-            max_obj = max(r.objective for r in valid_rs)
-            avg_cpu = sum(r.cpu_thread_s for r in valid_rs) / len(valid_rs)
-            max_cpu = max(r.cpu_thread_s for r in valid_rs)
+            avg_obj = sum(r.number_boxes for r in valid_rs) / len(valid_rs)
+            min_obj = min(r.number_boxes for r in valid_rs)
+            max_obj = max(r.number_boxes for r in valid_rs)
+            avg_cpu = sum(r.cpu_time_seconds for r in valid_rs) / len(valid_rs)
+            max_cpu = max(r.cpu_time_seconds for r in valid_rs)
             invalid_count = len(rs) - len(valid_rs)
             suffix = f"  ({invalid_count} invalid)" if invalid_count else ""
             print(
@@ -239,13 +239,13 @@ def save_csv(results: List[BenchmarkResult], filename: str) -> None:
     with open(filename, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "algo", "num_rects", "box_length", "instance_id",
-            "objective", "cpu_thread_s", "valid", "error",
+            "algo", "num_rects", "box_length", "test_instance",
+            "number_boxes", "cpu_time_seconds", "is_valid", "error",
         ])
         for r in results:
             writer.writerow([
-                r.algo_name, r.num_rects, r.box_length, r.instance_id,
-                r.objective, f"{r.cpu_thread_s:.6f}", r.valid, r.error,
+                r.algo_name, r.num_rects, r.box_length, r.test_instance,
+                r.number_boxes, f"{r.cpu_time_seconds:.6f}", r.is_valid, r.error,
             ])
 
 

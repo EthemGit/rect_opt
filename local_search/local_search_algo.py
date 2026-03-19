@@ -154,4 +154,24 @@ class LocalSearchAlgo(OptimizationAlgo):
                 sol.is_reheating = True
             self._attach_step_metadata(sol)
             sols.append(sol)
+        
+        # Option A: Force final cleanup if solution is invalid (e.g., due to timeout)
+        final_sol = sols[-1] if sols else None
+        if final_sol:
+            try:
+                final_sol.validate(permitted_error=0.0)
+            except ValueError:
+                # Final solution is invalid; force compaction if neighbor generator supports it
+                if hasattr(self.neighbor_generator, '_compact_all_boxes'):
+                    try:
+                        compacted = self.neighbor_generator._compact_all_boxes(final_sol)
+                        # Only replace if compaction resulted in a valid, non-empty solution
+                        try:
+                            compacted.validate(permitted_error=0.0)
+                            sols[-1] = compacted
+                        except ValueError:
+                            pass  # Keep original if compaction didn't fix it
+                    except Exception:
+                        pass  # Keep original if compaction failed
+        
         return sols
