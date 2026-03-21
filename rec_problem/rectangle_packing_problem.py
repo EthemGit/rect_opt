@@ -62,6 +62,19 @@ class RectanglePackingProblem(Problem):
             r.id: RectangleTemplate(id=r.id, length=r.length, width=r.width) for r in self.rectangles
         }
 
+    @classmethod
+    def from_templates(cls, box_length: int, templates: List[RectangleTemplate]) -> "RectanglePackingProblem":
+        """
+        Create a fresh RectanglePackingProblem from a list of RectangleTemplate objects.
+        Used by benchmarking to reconstruct problems without the random generation overhead.
+        """
+        # Create a minimal instance with no rectangles
+        problem = cls.__new__(cls)
+        problem.box_length = box_length
+        problem.rectangles = [Rectangle(id=t.id, length=t.length, width=t.width) for t in templates]
+        problem.rect_templates = {t.id: t for t in templates}
+        return problem
+
     # ----- GREEDY ------------------------------------------------------------------
 
     def empty_solution(self) -> RectanglePackingSolution:

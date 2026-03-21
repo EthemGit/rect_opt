@@ -10,13 +10,15 @@ Tuple format: (num_instances, num_rects, min_width, min_height, max_width, max_h
 
 import argparse
 import csv
+import multiprocessing as mp
+import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Tuple
 
-from rec_problem.rectangle_packing_problem import RectanglePackingProblem
+from rec_problem.rectangle_packing_problem import RectanglePackingProblem, RectangleTemplate
 from greedy.greedy_algo import GreedyAlgo
 from local_search.local_search_algo import LocalSearchAlgo
 from rec_problem.strategies.strat_largest_area_first import LargestAreaFirstStrategy
@@ -29,6 +31,65 @@ try:
     _HAS_PARTIAL_OVERLAP = True
 except Exception:
     _HAS_PARTIAL_OVERLAP = False
+
+
+# ---------------------------------------------------------------------------
+# Instance generation and caching
+# ---------------------------------------------------------------------------
+
+def save_instance_templates(templates: List[RectangleTemplate], csv_path: str) -> None:
+    """Save rectangle templates to CSV for reproducible reconstruction."""
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["id", "length", "width"])
+        for t in templates:
+            writer.writerow([t.id, t.length, t.width])
+
+
+def load_instance_templates(csv_path: str) -> List[RectangleTemplate]:
+    """Load rectangle templates from CSV."""
+    templates = []
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            templates.append(RectangleTemplate(
+                id=int(row["id"]),
+                length=int(row["length"]),
+                width=int(row["width"]),
+            ))
+    return templates
+
+
+def generate_and_save_instances(
+    spec: Tuple,
+    instance_dir: str,
+) -> List[str]:
+    """
+    Generate random rectangle instances and save their templates to CSV files.
+    Returns list of CSV file paths (one per instance).
+    """
+    num_instances, num_rects, min_w, min_h, max_w, max_h, L = spec
+    os.makedirs(instance_dir, exist_ok=True)
+
+    csv_paths = []
+    for inst_id in range(num_instances):
+        # Generate fresh random instance
+        problem = RectanglePackingProblem(
+            box_length=L,
+            rect_number=num_rects,
+            min_width=min_w,
+            max_width=max_w,
+            min_height=min_h,
+            max_height=max_h,
+        )
+        
+        # Save its templates
+        csv_path = os.path.join(instance_dir, f"instance_{inst_id}.csv")
+        templates = list(problem.rect_templates.values())
+        save_instance_templates(templates, csv_path)
+        csv_paths.append(csv_path)
+
+    return csv_paths
 
 
 # ---------------------------------------------------------------------------
@@ -76,54 +137,94 @@ class BenchmarkResult:
 # Algorithm factory
 # ---------------------------------------------------------------------------
 
-def make_algorithms(time_limit: float) -> List[Tuple[str, callable]]:
-    """Return list of (name, factory_fn) pairs. Factory is called fresh per instance."""
-    algos = [
-        (
-            "Greedy-LargestAreaFirst",
-            lambda: GreedyAlgo(LargestAreaFirstStrategy()),
-        ),
-        (
-            "Greedy-LongestSideFirst",
-            lambda: GreedyAlgo(LongestSideFirstStrategy()),
-        ),
-        (
-            "LocalSearch-Geometry",
-            lambda: LocalSearchAlgo(
-                GeometryBasedNeighborhood(max_neighbors=500),
-                max_iters=20_000,
-                stride=1,
-                first_improvement=True,
-                max_neighbors_per_step=500,
-                time_limit_seconds=time_limit,
-            ),
-        ),
-        (
-            "LocalSearch-RuleBased",
-            lambda: LocalSearchAlgo(
-                RuleBasedNeighborhood(max_neighbors=200),
-                max_iters=20_000,
-                stride=1,
-                first_improvement=True,
-                time_limit_seconds=time_limit,
-            ),
-        ),
+def make_algorithm_names() -> List[str]:
+    """Return benchmark algorithm names in execution order."""
+    names = [
+        "Greedy-LargestAreaFirst",
+        "Greedy-LongestSideFirst",
+        "LocalSearch-Geometry",
+        "LocalSearch-RuleBased",
     ]
-
     if _HAS_PARTIAL_OVERLAP:
-        algos.append((
-            "LocalSearch-PartialOverlap",
-            lambda: LocalSearchAlgo(
-                PartialOverlapNeighborhood(max_neighbors=500),
-                max_iters=20_000,
-                stride=1,
-                first_improvement=True,
-                max_neighbors_per_step=500,
-                time_limit_seconds=time_limit,
-            ),
-        ))
+        names.append("LocalSearch-PartialOverlap")
+    return names
 
-    return algos
+
+def build_algorithm(algo_name: str, time_limit: float):
+    """Create a fresh algorithm instance by name."""
+    if algo_name == "Greedy-LargestAreaFirst":
+        return GreedyAlgo(LargestAreaFirstStrategy())
+    if algo_name == "Greedy-LongestSideFirst":
+        return GreedyAlgo(LongestSideFirstStrategy())
+    if algo_name == "LocalSearch-Geometry":
+        return LocalSearchAlgo(
+            GeometryBasedNeighborhood(max_neighbors=500),
+            max_iters=20_000,
+            stride=1,
+            first_improvement=True,
+            max_neighbors_per_step=500,
+            time_limit_seconds=time_limit,
+        )
+    if algo_name == "LocalSearch-RuleBased":
+        return LocalSearchAlgo(
+            RuleBasedNeighborhood(max_neighbors=200),
+            max_iters=20_000,
+            stride=1,
+            first_improvement=True,
+            time_limit_seconds=time_limit,
+        )
+    if algo_name == "LocalSearch-PartialOverlap" and _HAS_PARTIAL_OVERLAP:
+        return LocalSearchAlgo(
+            PartialOverlapNeighborhood(max_neighbors=500),
+            max_iters=20_000,
+            stride=1,
+            first_improvement=True,
+            max_neighbors_per_step=500,
+            time_limit_seconds=time_limit,
+        )
+    raise ValueError(f"Unknown algorithm: {algo_name}")
+
+
+def _isolated_algo_worker(
+    algo_name: str,
+    time_limit: float,
+    box_length: int,
+    templates: List[RectangleTemplate],
+    out_q,
+) -> None:
+    """Run one algorithm in an isolated child process and return a serializable payload."""
+    try:
+        problem = RectanglePackingProblem.from_templates(box_length=box_length, templates=templates)
+        algo = build_algorithm(algo_name, time_limit)
+
+        t0_cpu = time.thread_time()
+        solutions = algo.solve(problem)
+        cpu_s = time.thread_time() - t0_cpu
+
+        final_sol = solutions[-1]
+        objective = len(final_sol.boxes)
+
+        valid = True
+        error = ""
+        try:
+            final_sol.validate(permitted_error=0.0)
+        except Exception as exc:
+            valid = False
+            error = str(exc)
+
+        out_q.put({
+            "cpu_time_seconds": cpu_s,
+            "number_boxes": objective,
+            "is_valid": valid,
+            "error": error,
+        })
+    except Exception as exc:
+        out_q.put({
+            "cpu_time_seconds": -1.0,
+            "number_boxes": -1,
+            "is_valid": False,
+            "error": str(exc),
+        })
 
 
 # ---------------------------------------------------------------------------
@@ -134,10 +235,12 @@ def run_spec(
     spec: Tuple,
     time_limit: float,
     results: List[BenchmarkResult],
+    instance_cache_dir: str = "./.benchmark_instances",
     verbose: bool = True,
 ) -> None:
     num_instances, num_rects, min_w, min_h, max_w, max_h, L = spec
-    algorithms = make_algorithms(time_limit)
+    algorithm_names = make_algorithm_names()
+    mp_ctx = mp.get_context("spawn")
 
     if verbose:
         print(
@@ -145,66 +248,69 @@ def run_spec(
             f"w=[{min_w},{max_w}], h=[{min_h},{max_h}], L={L} ==="
         )
 
-    for inst_id in range(num_instances):
-        problem = RectanglePackingProblem(
-            box_length=L,
-            rect_number=num_rects,
-            min_width=min_w,
-            max_width=max_w,
-            min_height=min_h,
-            max_height=max_h,
-        )
+    # Generate and save instances (excludes this from algorithm timing)
+    if verbose:
+        print(f"  Generating and saving {num_instances} instances...")
+    csv_paths = generate_and_save_instances(spec, instance_cache_dir)
 
-        for algo_name, algo_factory in algorithms:
-            algo = algo_factory()
-            t0 = time.thread_time()
-            try:
-                solutions = algo.solve(problem)
-                cpu_s = time.thread_time() - t0
+    # For each instance, load fresh and time each algorithm
+    for inst_id, csv_path in enumerate(csv_paths):
+        templates = load_instance_templates(csv_path)
 
-                final_sol = solutions[-1]
-                objective = len(final_sol.boxes)
+        for algo_name in algorithm_names:
+            out_q = mp_ctx.Queue()
+            p = mp_ctx.Process(
+                target=_isolated_algo_worker,
+                args=(algo_name, time_limit, L, templates, out_q),
+            )
+            p.start()
 
-                valid = True
-                error = ""
-                try:
-                    final_sol.validate(permitted_error=0.0)
-                except Exception as e:
-                    valid = False
-                    error = str(e)
+            # Keep a hard cap so verify cannot hang forever if a worker gets stuck.
+            worker_timeout = max(60.0, time_limit * 8.0)
+            p.join(worker_timeout)
 
-                status = "OK" if valid else f"INVALID: {error}"
-                if verbose:
-                    print(
-                        f"  {algo_name:<32}  inst={inst_id}"
-                        f"  boxes={objective}  cpu={cpu_s:.3f}s  {status}"
-                    )
+            if p.is_alive():
+                p.terminate()
+                p.join()
+                payload = {
+                    "cpu_time_seconds": worker_timeout,
+                    "number_boxes": -1,
+                    "is_valid": False,
+                    "error": f"Worker timeout after {worker_timeout:.1f}s",
+                }
+            else:
+                if out_q.empty():
+                    payload = {
+                        "cpu_time_seconds": -1.0,
+                        "number_boxes": -1,
+                        "is_valid": False,
+                        "error": f"Worker exited with code {p.exitcode} without payload",
+                    }
+                else:
+                    payload = out_q.get()
 
-                results.append(BenchmarkResult(
-                    algo_name=algo_name,
-                    num_rects=num_rects,
-                    box_length=L,
-                    test_instance=inst_id,
-                    number_boxes=objective,
-                    cpu_time_seconds=cpu_s,
-                    is_valid=valid,
-                    error=error,
-                ))
+            cpu_s = float(payload.get("cpu_time_seconds", -1.0))
+            objective = int(payload.get("number_boxes", -1))
+            valid = bool(payload.get("is_valid", False))
+            error = str(payload.get("error", ""))
 
-            except Exception as exc:
-                cpu_s = time.thread_time() - t0
-                if verbose:
-                    print(f"  {algo_name:<32}  inst={inst_id}  ERROR: {exc}")
-                results.append(BenchmarkResult(
-                    algo_name=algo_name,
-                    num_rects=num_rects,
-                    box_length=L,
-                    test_instance=inst_id,
-                    number_boxes=-1,
-                    cpu_time_seconds=cpu_s,
-                    is_valid=False,
-                    error=str(exc),
-                ))
+            status = "OK" if valid else f"INVALID: {error}"
+            if verbose:
+                print(
+                    f"  {algo_name:<32}  inst={inst_id}"
+                    f"  boxes={objective}  cpu={cpu_s:.3f}s  {status}"
+                )
+
+            results.append(BenchmarkResult(
+                algo_name=algo_name,
+                num_rects=num_rects,
+                box_length=L,
+                test_instance=inst_id,
+                number_boxes=objective,
+                cpu_time_seconds=cpu_s,
+                is_valid=valid,
+                error=error,
+            ))
 
 
 # ---------------------------------------------------------------------------
