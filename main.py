@@ -398,15 +398,17 @@ class PackingGUI:
             messagebox.showwarning("Selection Required", "Please choose one Local Search neighborhood.")
             return
         
+        no_improve_limit = 1
         if token == "geometry":
             self.selected_neighborhood_obj = GeometryBasedNeighborhood(max_neighbors=500)
         elif token == "partial_overlap":
             self.selected_neighborhood_obj = PartialOverlapNeighborhood(max_neighbors=500)
         elif token == "rule_based":
             self.selected_neighborhood_obj = RuleBasedNeighborhood(max_neighbors=2000)
+            no_improve_limit = 15  # stochastic sampling: retry before giving up
         else:
             messagebox.showerror("Unknown Strategy", f"Unknown strategy token: {token}")
-            return            
+            return
 
         try:
             stride = 5
@@ -415,7 +417,8 @@ class PackingGUI:
                                              stride=stride,
                                              first_improvement=True,
                                              max_neighbors_per_step=2000,
-                                             time_limit_seconds=20.0)
+                                             time_limit_seconds=20.0,
+                                             no_improve_limit=no_improve_limit)
             self._solutions = self.algorithm.solve(self.problem)
             self._solutions = self._deduplicate_solutions(self._solutions)
             self._compute_step_new_sets()

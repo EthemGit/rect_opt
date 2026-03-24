@@ -91,6 +91,25 @@ Track open violations, bugs, and completed work across sessions.
 - `Box.clone()`: replaced `Box(L)` init (creates L² tuples) with `Box.__new__(Box)`.
 - `RectanglePackingSolution.clone()`: replaced `copy.deepcopy(boxes)` with `[b.clone() for b in self.boxes]`.
 
+### P2 — Rule-Based LS quality for large instances `[  ]`
+**Status:** Open — known limitation, not yet addressed.
+**Problem:** For 1000 rects, Rule-Based LS starts at 118 boxes and cannot reduce the count at all (Greedy achieves 96). Root cause: `construct_from_order(1000 rects)` costs ~5-10ms per call; with `time_budget_per_call_seconds=1.5` only ~150 neighbours are evaluated per iteration — far too few to reliably find a move that eliminates a full box. Single permutation swaps create unpredictable cascade effects and the composite-score gradient is very flat for large instances.
+**Investigation method:** write a temp script that compares Greedy boxes vs LS boxes for the same seed; confirmed via test on 2026-03-24.
+**Potential fixes (not yet applied):**
+- Target sparse-box rects more aggressively and try all positions (not a sparse sample).
+- Reduce `time_budget_per_call_seconds` to allow more iterations instead of deeper per-call search.
+- Multi-element moves: move all rects from the sparsest box earlier in the permutation at once.
+
+---
+
+## BUGS (behaviour)
+
+### B4 — Rule-Based LS terminates after 0–6 steps (stochastic sampling + permanent break) `[x]`
+**Where:** `local_search/local_search_algo.py`, `main.py`
+**Problem:** `LocalSearchAlgo.solve()` called `break` permanently the first time `best_improving_neighbor` returned `None`. `RuleBasedNeighborhood.generate_neighbors()` samples candidates and insert positions randomly, so `None` means "nothing found in *this* sample", not "true local optimum". Verified: 15/20 retries on the "stuck" final solution found improvements.
+**Fix:** Added `no_improve_limit: int = 1` parameter to `LocalSearchAlgo`. The loop now retries up to N times (with different random samples) before breaking. Set to `no_improve_limit=15` for Rule-Based in `main.py`. Deterministic neighborhoods keep the default (1) so behaviour is unchanged.
+**Effect:** Accepted improvement steps for 80 rects: 25 → 33; GUI visible steps (stride=5): 6 → 9; full 20s time budget now used.
+
 ---
 
 ## COMPLETED
@@ -104,12 +123,14 @@ Track open violations, bugs, and completed work across sessions.
 
 | # | ID | Reason |
 |---|---|---|
-| 1 | V1+V2 | Core architecture — examiner checks this first; easiest to fail on |
-| 2 | B1+B2 | Silent correctness bugs that affect all algorithms |
+| 1 | ~~V1+V2~~ | **done** — generic architecture violations removed |
+| 2 | ~~B1+B2~~ | **done** — mutation bugs fixed |
 | 3 | ~~V4~~ | **done** — 4 separate width/height params in problem + GUI |
 | 4 | ~~V6~~ | **done** — `benchmark.py` with demo + verify mode |
-| 5 | P1 | Run benchmark; verify 1000 rects ≤ 10s |
-| 6 | V3 | Partial overlap neighborhood — most complex to implement |
-| 7 | V5 | GUI colors — cosmetic but explicitly required |
-| 8 | ~~B3~~ | **done** — `validate()` implemented with bounds + overlap check |
-| 9 | M1+M2 | Cleanup |
+| 5 | ~~P1~~ | **done** — Greedy ≤10s for 1000 rects confirmed |
+| 6 | ~~B3~~ | **done** — `validate()` implemented with bounds + overlap check |
+| 7 | ~~B4~~ | **done** — Rule-Based LS premature termination fixed (`no_improve_limit`) |
+| 8 | V3 | Partial overlap neighborhood — most complex to implement |
+| 9 | V5 | GUI colors — cosmetic but explicitly required |
+| 10 | P2 | Rule-Based quality for 1000 rects — neighbourhood too weak |
+| 11 | M1+M2 | Cleanup |

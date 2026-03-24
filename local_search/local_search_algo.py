@@ -61,13 +61,18 @@ class LocalSearchAlgo(OptimizationAlgo):
     - first_improvement: whether to accept first improving neighbor (fast) or best (slower)
     """
 
-    def __init__(self, neighbor_generator, max_iters: int = 1000, stride: int = 1, first_improvement: bool = True, max_neighbors_per_step: int = None, time_limit_seconds: float = 0.0):
+    def __init__(self, neighbor_generator, max_iters: int = 1000, stride: int = 1, first_improvement: bool = True, max_neighbors_per_step: int = None, time_limit_seconds: float = 0.0, no_improve_limit: int = 1):
         self.neighbor_generator = neighbor_generator
         self.max_iters = int(max_iters)
         self.stride = int(stride)
         self.first_improvement = bool(first_improvement)
         self.max_neighbors_per_step = max_neighbors_per_step
         self.time_limit_seconds = time_limit_seconds
+        # no_improve_limit: how many consecutive None-returns from best_improving_neighbor
+        # are tolerated before stopping. For deterministic neighborhoods use 1 (default).
+        # For stochastic neighborhoods (e.g. rule-based with random sampling) use >1
+        # so the algorithm retries with a different random sample before giving up.
+        self.no_improve_limit = max(1, int(no_improve_limit))
 
     def _attach_step_metadata(self, sol):
         """Attach neighborhood metadata needed by the GUI to a solution snapshot."""
@@ -101,6 +106,7 @@ class LocalSearchAlgo(OptimizationAlgo):
         self._attach_step_metadata(sol)
         sols = [sol]
         it = 0
+        consecutive_no_improve = 0
         steps_since_last_record = 0
         accumulated_highlights = set()
         pending_compacting = False
@@ -114,8 +120,13 @@ class LocalSearchAlgo(OptimizationAlgo):
                 max_neighbors=self.max_neighbors_per_step
             )
             if improved is None:
-                break
+                consecutive_no_improve += 1
+                if consecutive_no_improve >= self.no_improve_limit:
+                    break
+                # Stochastic neighborhood: retry with a different random sample
+                continue
 
+            consecutive_no_improve = 0
             if hasattr(improved, 'highlighted_ids'):
                 accumulated_highlights |= improved.highlighted_ids
 

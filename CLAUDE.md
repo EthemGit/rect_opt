@@ -68,7 +68,7 @@ The codebase uses a **generic core / concrete problem** split:
 - **`solve()` returns `List[Solution]`**: Every algorithm returns a list of intermediate solutions so the GUI can animate progress step-by-step.
 - **Objective = `len(sol.boxes)`**: Minimizing the number of boxes used. `evaluate()` returns box count.
 - **`is_better_solution()`** uses a tiebreaker beyond box count: prefers solutions with fewer boxes containing < N rects (consolidation heuristic).
-- **Permutation-based vs geometry-based neighborhoods**: `NeighborGenerator.is_permutation_based()` determines whether local search starts from `bad_solution()` (one rect per box) or `bad_permutation_solution()` (greedy-like initial packing).
+- **`no_improve_limit` in `LocalSearchAlgo`**: For stochastic neighborhoods (Rule-Based uses random candidate sampling), a single `None` return from `best_improving_neighbor` does not mean a true local optimum — just that this random sample found nothing. `no_improve_limit` (default 1, set to 15 for Rule-Based in GUI) controls how many consecutive `None` returns are tolerated before the loop terminates. Deterministic neighborhoods keep the default (1).
 - **Box coordinate system**: `(x, y)` where x is horizontal (width direction), y is vertical (length direction). `rect.width` extends along x, `rect.length` extends along y.
 
 ## Workflow
@@ -76,19 +76,28 @@ The codebase uses a **generic core / concrete problem** split:
 - **Progress tracking**: All open violations, bugs, and completed work are tracked in `PROGRESS.md`. **Read it at the start of every session** before doing anything else.
 - **Commit when I tell you to.** Use concise commit messages. No AI co-author tags ever.
 - When i report a bug, do not start by trying to fix it. Instead, start by writing a test that reproduces the bug. Then, have subagents try to fix the bug and prove it with a passing test.
-- **Headless testing**: Use `benchmark.py` (to be built) to validate algorithms without GUI — measures CPU time, objective values, and solution correctness. This also fulfills the Section 8 benchmarking requirement.
-- **Self-validation**: Run headless benchmarks to check correctness and timing rather than asking the user to run the GUI.
+- **Headless testing**: Use `benchmark.py` to validate algorithms without GUI — measures CPU time, objective values, and solution correctness.
+- **Self-validation workflow (mandatory):**
+  1. Before fixing any issue, write a small throwaway Python script (temp file in project root) that **proves the bug exists** via printed output.
+  2. Apply the fix.
+  3. Re-run (or extend) the same script to **prove the fix works**.
+  4. Delete the temp file.
+  - Use only `print()` and `sys.path.insert(0, '.')` — no test frameworks needed.
+  - Avoid Unicode in print strings on Windows (use ASCII only — no arrows, checkmarks, etc.).
+  - Never ask the user to run the GUI to verify correctness; self-validate headlessly instead.
 
 ## Known Violations (summary — see PROGRESS.md for detail)
 
-| ID | Issue                                                                               |
-| -- | ----------------------------------------------------------------------------------- |
-| V1 | `is_permutation_based()` in `NeighborGenerator` leaks problem concept into core |
-| V2 | `neighbors()` and `bad_permutation_solution()` in `Problem` are LS-specific   |
-| V3 | Partial overlap neighborhood is a complete stub                                     |
-| V4 | Instance generator lacks separate min/max width and height                          |
-| V5 | GUI uses green colors — must be Yellow/Blue                                        |
-| V6 | Benchmark harness (`benchmark.py`) missing entirely                               |
-| B1 | `process_item()` mutates the original Rectangle object                            |
-| B2 | `bad_permutation_solution()` mutates `self.rectangles`                          |
-| B3 | `validate()` not implemented (`x=42` placeholder)                               |
+| ID | Status | Issue                                                                          |
+| -- | ------ | ------------------------------------------------------------------------------ |
+| V1 | done   | `is_permutation_based()` leaked problem concept into core                      |
+| V2 | done   | `neighbors()` and `bad_permutation_solution()` were LS-specific in `Problem`  |
+| V3 | open   | Partial overlap neighborhood is a complete stub                                |
+| V4 | done   | Instance generator lacked separate min/max width and height                    |
+| V5 | open   | GUI uses green colors — must be Yellow/Blue                                   |
+| V6 | done   | Benchmark harness (`benchmark.py`) was missing                                |
+| B1 | done   | `process_item()` mutated the original Rectangle object                        |
+| B2 | done   | `bad_permutation_solution()` mutated `self.rectangles`                        |
+| B3 | done   | `validate()` not implemented                                                  |
+| B4 | done   | Rule-Based LS terminated after 0–6 steps due to permanent break on `None`     |
+| P2 | open   | Rule-Based LS quality collapses for 1000 rects (118 vs 96 boxes from Greedy)  |
