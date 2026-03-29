@@ -172,6 +172,7 @@ def build_algorithm(algo_name: str, time_limit: float):
             stride=1,
             first_improvement=True,
             time_limit_seconds=time_limit,
+            non_box_improve_accept_limit=10,
         )
     if algo_name == "LocalSearch-PartialOverlap" and _HAS_PARTIAL_OVERLAP:
         return LocalSearchAlgo(

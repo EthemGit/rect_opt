@@ -1,5 +1,6 @@
 # local_search/local_search_algo.py
 from core.optimization_algorithm import OptimizationAlgo
+from typing import Optional
 
 """
 Explanation of the different limits involved in using the Local Search Algo:
@@ -61,7 +62,7 @@ class LocalSearchAlgo(OptimizationAlgo):
     - first_improvement: whether to accept first improving neighbor (fast) or best (slower)
     """
 
-    def __init__(self, neighbor_generator, max_iters: int = 1000, stride: int = 1, first_improvement: bool = True, max_neighbors_per_step: int = None, time_limit_seconds: float = 0.0, no_improve_limit: int = 1):
+    def __init__(self, neighbor_generator, max_iters: int = 1000, stride: int = 1, first_improvement: bool = True, max_neighbors_per_step: Optional[int] = None, time_limit_seconds: float = 0.0, no_improve_limit: int = 1, non_box_improve_accept_limit: int = 0):
         self.neighbor_generator = neighbor_generator
         self.max_iters = int(max_iters)
         self.stride = int(stride)
@@ -73,6 +74,9 @@ class LocalSearchAlgo(OptimizationAlgo):
         # For stochastic neighborhoods (e.g. rule-based with random sampling) use >1
         # so the algorithm retries with a different random sample before giving up.
         self.no_improve_limit = max(1, int(no_improve_limit))
+        # non_box_improve_accept_limit: max consecutive accepted moves that do not
+        # reduce box count. 0 disables the cap.
+        self.non_box_improve_accept_limit = max(0, int(non_box_improve_accept_limit))
 
     def _attach_step_metadata(self, sol):
         """Attach neighborhood metadata needed by the GUI to a solution snapshot."""
@@ -107,6 +111,7 @@ class LocalSearchAlgo(OptimizationAlgo):
         sols = [sol]
         it = 0
         consecutive_no_improve = 0
+        consecutive_non_box_improve_accepts = 0
         steps_since_last_record = 0
         accumulated_highlights = set()
         pending_compacting = False
@@ -130,6 +135,13 @@ class LocalSearchAlgo(OptimizationAlgo):
             if hasattr(improved, 'highlighted_ids'):
                 accumulated_highlights |= improved.highlighted_ids
 
+            old_boxes = len(sol.boxes)
+            new_boxes = len(improved.boxes)
+            if new_boxes < old_boxes:
+                consecutive_non_box_improve_accepts = 0
+            else:
+                consecutive_non_box_improve_accepts += 1
+
             sol = improved
             self._attach_step_metadata(sol)
             steps_since_last_record += 1
@@ -152,6 +164,9 @@ class LocalSearchAlgo(OptimizationAlgo):
                 pending_reheating = False
 
             it += 1
+
+            if self.non_box_improve_accept_limit > 0 and consecutive_non_box_improve_accepts >= self.non_box_improve_accept_limit:
+                break
 
         # ensure final solution included
         if sols[-1] is not sol:

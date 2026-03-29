@@ -399,6 +399,7 @@ class PackingGUI:
             return
         
         no_improve_limit = 1
+        non_box_improve_accept_limit = 0
         if token == "geometry":
             self.selected_neighborhood_obj = GeometryBasedNeighborhood(max_neighbors=500)
         elif token == "partial_overlap":
@@ -406,6 +407,11 @@ class PackingGUI:
         elif token == "rule_based":
             self.selected_neighborhood_obj = RuleBasedNeighborhood(max_neighbors=2000)
             no_improve_limit = 15  # stochastic sampling: retry before giving up
+            rect_count = len(getattr(self.problem, "rectangles", []) or [])
+            # Proportional cap: 10% of instance size, bounded from below.
+            proportional_limit = max(1, rect_count // 10)
+            max_allowed = max(10, rect_count // 3)
+            non_box_improve_accept_limit = max(10, min(proportional_limit, max_allowed))
         else:
             messagebox.showerror("Unknown Strategy", f"Unknown strategy token: {token}")
             return
@@ -417,8 +423,9 @@ class PackingGUI:
                                              stride=stride,
                                              first_improvement=True,
                                              max_neighbors_per_step=2000,
-                                             time_limit_seconds=20.0,
-                                             no_improve_limit=no_improve_limit)
+                                             time_limit_seconds=15.0,
+                                             no_improve_limit=no_improve_limit,
+                                             non_box_improve_accept_limit=non_box_improve_accept_limit)
             self._solutions = self.algorithm.solve(self.problem)
             self._solutions = self._deduplicate_solutions(self._solutions)
             self._compute_step_new_sets()

@@ -142,31 +142,10 @@ class RuleBasedNeighborhood(NeighborGenerator):
         base_boxes = len(base_sol.boxes)
 
         n = len(base_order)
-        if n <= 250:
-            gap_min_ratio = 0.30
-            gap_max_ratio = 0.52
-            attempts_per_rate = self.initial_attempts_per_rate + 3
-            damage_rates = [0.24, 0.30, 0.36, 0.42, 0.50]
-        elif n <= 500:
-            gap_min_ratio = 0.22
-            gap_max_ratio = 0.40
-            attempts_per_rate = self.initial_attempts_per_rate + 2
-            damage_rates = [0.20, 0.26, 0.32, 0.38, 0.46]
-        elif n >= 800:
-            gap_min_ratio = 0.11
-            gap_max_ratio = 0.19
-            attempts_per_rate = self.initial_attempts_per_rate
-            damage_rates = [0.08, 0.12, 0.16, 0.20, 0.24]
-        elif n > 500:
-            gap_min_ratio = 0.12
-            gap_max_ratio = 0.21
-            attempts_per_rate = self.initial_attempts_per_rate
-            damage_rates = [0.09, 0.13, 0.18, 0.23, 0.28]
-        else:
-            gap_min_ratio = 0.22
-            gap_max_ratio = 0.40
-            attempts_per_rate = self.initial_attempts_per_rate + 2
-            damage_rates = [0.12, 0.16, 0.20, 0.26]
+        gap_min_ratio = 0.30
+        gap_max_ratio = 0.52
+        attempts_per_rate = self.initial_attempts_per_rate + 3
+        damage_rates = [0.24, 0.30, 0.36, 0.42, 0.50]
 
         target_min = base_boxes + max(1, int(round(base_boxes * gap_min_ratio)))
         target_max = base_boxes + max(2, int(round(base_boxes * gap_max_ratio)))
