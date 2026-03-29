@@ -15,8 +15,10 @@ class RuleBasedNeighborhood(NeighborGenerator):
     - Insert moves are strongly biased toward earlier permutation positions.
     - Only a small exploration tail (few random IDs and rare late moves) remains.
 
-    Composite score (minimized):
-      Fitness = B - (sum(fill_i^2)) / B, where fill_i = used_area_i / L^2.
+        Acceptance objective (lexicographic, minimized):
+            1) box_count
+            2) distance_to_largest_area_first
+            3) sparse_penalty
     """
 
     max_neighbors: int = 500
@@ -27,24 +29,21 @@ class RuleBasedNeighborhood(NeighborGenerator):
     targeted_candidate_cap: int = 120
     random_candidate_cap: int = 18
     exploration_late_move_prob: float = 0.22
+    sparse_fill_threshold: float = 0.35
+
+    _laf_order_key: tuple = ()
+    _laf_pos_by_id: dict | None = None
 
     # Initial-solution knobs: deliberately bad, but bounded-bad.
     initial_target_gap_min_ratio: float = 0.14
     initial_target_gap_max_ratio: float = 0.24
     initial_attempts_per_rate: int = 4
 
-    # Stage schedule: intensify by default, diversify briefly after stagnation.
-    diversify_trigger_no_improve_calls: int = 4
-    diversify_calls_window: int = 2
-    diversify_random_moves: int = 40
-    _no_improve_calls: int = 0
-    _diversify_calls_left: int = 0
-
     # ------------------------------------------------------------------ #
     #  Core interface                                                     #
     # ------------------------------------------------------------------ #
 
-    def generate_neighbors(self, problem, current_solution, *, mode: str = "intensify"):
+    def generate_neighbors(self, problem, current_solution):
         perm = current_solution.permutation
         n = len(perm)
         if n == 0:
@@ -52,16 +51,6 @@ class RuleBasedNeighborhood(NeighborGenerator):
 
         perm_index = {rid: i for i, rid in enumerate(perm)}
         generated = 0
-
-        # Stage B: diversification-first probing when stagnated.
-        if mode == "diversify":
-            for new_perm, moved_ids in self._get_random_perturbation_moves(perm):
-                sol = problem.construct_from_order(new_perm)
-                sol.highlighted_ids = moved_ids
-                yield sol
-                generated += 1
-                if generated >= self.max_neighbors:
-                    return
 
         # Priority 1: block moves from sparse boxes (coordinated moves)
         for new_perm, block_ids in self._get_block_moves(current_solution, perm, perm_index):
@@ -107,7 +96,7 @@ class RuleBasedNeighborhood(NeighborGenerator):
     def best_improving_neighbor(self, problem, sol, *, first_improvement: bool = True, max_neighbors: int = 500):
         import time
 
-        mode = "diversify" if self._diversify_calls_left > 0 else "intensify"
+        self._ensure_laf_reference(problem)
 
         deadline = (
             time.time() + self.time_budget_per_call_seconds
@@ -115,29 +104,24 @@ class RuleBasedNeighborhood(NeighborGenerator):
             else None
         )
 
-        base_score = self._composite_score(sol)
+        base_key = self._objective_key(sol)
         best = None
-        best_score = base_score
+        best_key = base_key
         count = 0
 
-        for nb in self.generate_neighbors(problem, sol, mode=mode):
+        for nb in self.generate_neighbors(problem, sol):
             if max_neighbors is not None and count >= max_neighbors:
                 break
             if deadline and time.time() > deadline:
                 break
             count += 1
 
-            score = self._composite_score(nb)
-            if score < best_score:
+            key = self._objective_key(nb)
+            if key < best_key:
                 best = nb
-                best_score = score
+                best_key = key
                 if first_improvement:
-                    self._on_improvement_found()
                     return best
-        if best is not None:
-            self._on_improvement_found()
-        else:
-            self._on_no_improvement()
         return best
 
     def initial_solution(self, problem):
@@ -302,14 +286,47 @@ class RuleBasedNeighborhood(NeighborGenerator):
     #  Helpers                                                            #
     # ------------------------------------------------------------------ #
 
-    def _composite_score(self, sol) -> float:
-        if not sol.boxes:
+    def _objective_key(self, sol) -> tuple:
+        """
+        Lexicographic objective key:
+        1) fewer boxes
+        2) closer to largest-area-first permutation
+        3) lower sparse-penalty
+        """
+        return (
+            len(sol.boxes),
+            self._distance_to_laf(sol.permutation),
+            self._sparse_penalty(sol),
+        )
+
+    def _ensure_laf_reference(self, problem):
+        laf_order = tuple(r.id for r in sorted(problem.rectangles, key=lambda r: (-r.get_area(), r.id)))
+        if laf_order == self._laf_order_key and self._laf_pos_by_id is not None:
+            return
+
+        self._laf_order_key = laf_order
+        self._laf_pos_by_id = {rid: idx for idx, rid in enumerate(laf_order)}
+
+    def _distance_to_laf(self, perm) -> int:
+        if not self._laf_pos_by_id or not perm:
             return 0
 
-        box_count = len(sol.boxes)
-        l2 = sol.box_length * sol.box_length
-        sum_sq = sum(((l2 - len(box.empty_coordinates)) / l2) ** 2 for box in sol.boxes)
-        return box_count - sum_sq / box_count
+        return sum(abs(idx - self._laf_pos_by_id.get(rid, idx)) for idx, rid in enumerate(perm))
+
+    def _sparse_penalty(self, sol) -> float:
+        if not sol.boxes:
+            return 0.0
+
+        box_area = sol.box_length * sol.box_length
+        threshold = self.sparse_fill_threshold
+        penalty = 0.0
+        for box in sol.boxes:
+            used_area = box_area - len(box.empty_coordinates)
+            fill = used_area / box_area
+            if fill < threshold:
+                deficit = threshold - fill
+                penalty += deficit * deficit
+        return penalty
 
     def _get_block_moves(self, solution, perm, perm_index):
         """
@@ -399,46 +416,6 @@ class RuleBasedNeighborhood(NeighborGenerator):
             new_perm = [rid for rid in perm if rid not in block_rect_ids]
             new_perm[tgt_insert_pos : tgt_insert_pos] = block_rect_ids
             yield new_perm, set(block_rect_ids)
-
-    def _get_random_perturbation_moves(self, perm):
-        """
-        Diversification neighborhood: random bidirectional inserts and swaps
-        over the full permutation to escape stagnation.
-        """
-        n = len(perm)
-        if n <= 1:
-            return
-
-        move_count = min(self.diversify_random_moves, max(1, n // 2))
-        for _ in range(move_count):
-            src_idx = random.randrange(n)
-            tgt_idx = random.randrange(n)
-            if src_idx == tgt_idx:
-                continue
-
-            new_perm = list(perm)
-            if random.random() < 0.7:
-                rid = new_perm.pop(src_idx)
-                new_perm.insert(tgt_idx, rid)
-                yield new_perm, {rid}
-            else:
-                rid_a = new_perm[src_idx]
-                rid_b = new_perm[tgt_idx]
-                new_perm[src_idx], new_perm[tgt_idx] = new_perm[tgt_idx], new_perm[src_idx]
-                yield new_perm, {rid_a, rid_b}
-
-    def _on_improvement_found(self):
-        self._no_improve_calls = 0
-        self._diversify_calls_left = 0
-
-    def _on_no_improvement(self):
-        self._no_improve_calls += 1
-        if self._diversify_calls_left > 0:
-            self._diversify_calls_left -= 1
-            return
-        if self._no_improve_calls >= self.diversify_trigger_no_improve_calls:
-            self._diversify_calls_left = self.diversify_calls_window
-
 
     def _get_move_candidates(self, problem, solution, perm, perm_index) -> list:
         """
