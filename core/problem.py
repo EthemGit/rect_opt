@@ -1,5 +1,3 @@
-# abstraktes Problem, das z.B. von rectangle packing Problem implementiert wird
-
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar, List
 

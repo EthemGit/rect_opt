@@ -1,8 +1,3 @@
-# implements optimization_algorithm
-# problem-agnostic
-# calls selection_strategy
-# next step chosen and implemented via SelectionStrategy
-
 from core.optimization_algorithm import OptimizationAlgo
 import math
 
