@@ -65,7 +65,9 @@ class PackingGUI:
         self.solution_canvas = None
         self.solution_header_var = tk.StringVar(value="Boxes: —")  # header text for solution popup
         self._zoom = 1.4            # start slightly zoomed-in
-        self.MIN_CELL = 200         # minimum pixel size per box cell
+        self.BASE_CELL = 200        # box size at zoom=1.0
+        self.MIN_CELL = 80          # minimum pixel size per box cell
+        self.MAX_COLS = 6           # do not exceed 6 columns in the viewer
 
         # layout: two main columns
         self.root.rowconfigure(0, weight=1)
@@ -91,7 +93,11 @@ class PackingGUI:
         self.root.bind("<Configure>", self._on_resize)
 
     def _ensure_final_layout_lock(self, force: bool = False):
-        """Lock grid cols/size/scale to the *final* solution so size is stable across steps."""
+        """Compute layout from final step + current zoom.
+
+        As zoom increases, the number of columns is reduced dynamically so
+        boxes can grow without requiring horizontal scrolling.
+        """
         if not self._solutions or not self.solution_canvas:
             return
         final_sol = self._solutions[-1]
@@ -99,20 +105,23 @@ class PackingGUI:
         box_len_final = getattr(final_sol, "box_length", None)
         if not boxes_final or not box_len_final:
             return
-        if (not force) and (self._locked_cols is not None):
-            return
 
         c = self.solution_canvas
         w = max(c.winfo_width(), 1)
         gap = self._gap
 
         n_final = len(boxes_final)
-        max_cols_by_min = (w - gap) // (self.MIN_CELL + gap)
-        cols = int(max(1, min(n_final, max_cols_by_min)))
+        desired_cell = int(self.BASE_CELL * self._zoom)
+        desired_cell = max(self.MIN_CELL, min(1200, desired_cell))
+
+        max_cols_by_zoom = int((w - gap) // (desired_cell + gap))
+        max_cols_by_zoom = max(1, max_cols_by_zoom)
+
+        cols = int(max(1, min(n_final, self.MAX_COLS, max_cols_by_zoom)))
 
         cell_w_avail = (w - (cols + 1) * gap) / cols
-        desired = max(self.MIN_CELL, int(cell_w_avail * self._zoom))
-        cell_size = int(min(cell_w_avail, desired))
+        cell_size = int(min(cell_w_avail, desired_cell))
+        cell_size = max(1, cell_size)
         scale = cell_size / float(box_len_final)
 
         self._locked_cols = cols
@@ -421,21 +430,27 @@ class PackingGUI:
             if final and getattr(final, "boxes", None) and getattr(final, "box_length", None):
                 n_final = len(final.boxes)
                 box_len_final = final.box_length
-                max_cols_by_min = (w - gap) // (self.MIN_CELL + gap)
-                cols = int(max(1, min(n_final, max_cols_by_min)))
+                desired_cell = int(self.BASE_CELL * self._zoom)
+                desired_cell = max(self.MIN_CELL, min(1200, desired_cell))
+                max_cols_by_zoom = int((w - gap) // (desired_cell + gap))
+                max_cols_by_zoom = max(1, max_cols_by_zoom)
+                cols = int(max(1, min(n_final, self.MAX_COLS, max_cols_by_zoom)))
                 cell_w_avail = (w - (cols + 1) * gap) / cols
-                desired = max(self.MIN_CELL, int(cell_w_avail * self._zoom))
-                cell_size = int(min(cell_w_avail, desired))
+                cell_size = int(min(cell_w_avail, desired_cell))
+                cell_size = max(1, cell_size)
                 scale = cell_size / float(box_len_final)
                 self._locked_box_len = box_len_final
             else:
                 # As a last resort, compute from the CURRENT step
                 n_cur = len(boxes)
-                max_cols_by_min = (w - gap) // (self.MIN_CELL + gap)
-                cols = int(max(1, min(n_cur, max_cols_by_min)))
+                desired_cell = int(self.BASE_CELL * self._zoom)
+                desired_cell = max(self.MIN_CELL, min(1200, desired_cell))
+                max_cols_by_zoom = int((w - gap) // (desired_cell + gap))
+                max_cols_by_zoom = max(1, max_cols_by_zoom)
+                cols = int(max(1, min(n_cur, self.MAX_COLS, max_cols_by_zoom)))
                 cell_w_avail = (w - (cols + 1) * gap) / cols
-                desired = max(self.MIN_CELL, int(cell_w_avail * self._zoom))
-                cell_size = int(min(cell_w_avail, desired))
+                cell_size = int(min(cell_w_avail, desired_cell))
+                cell_size = max(1, cell_size)
                 scale = cell_size / float(box_len)
 
             self._locked_cols = cols
