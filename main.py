@@ -64,6 +64,7 @@ class PackingGUI:
         self.solution_window = None
         self.solution_canvas = None
         self.solution_header_var = tk.StringVar(value="Boxes: —")  # header text for solution popup
+        self.solution_problem_var = tk.StringVar(value=": —")
         self._zoom = 1.4            # start slightly zoomed-in
         self.BASE_CELL = 200        # box size at zoom=1.0
         self.MIN_CELL = 80          # minimum pixel size per box cell
@@ -490,7 +491,7 @@ class PackingGUI:
                 cell_x + cell_size // 2,
                 cell_y + title_h // 2,
                 anchor="center",
-                text=f"Box {idx+1} (L={box_len}, number of rects={rect_count})",
+                text=f"Box {idx+1} ({rect_count} rects)",
                 font=("Segoe UI", 10, "bold")
             )
 
@@ -568,7 +569,7 @@ class PackingGUI:
 
         outer = ttk.Frame(win, padding=0)
         outer.pack(fill="both", expand=True)
-        outer.rowconfigure(2, weight=1)   # row 2 holds canvas
+        outer.rowconfigure(3, weight=1)   # row 3 holds canvas
         outer.columnconfigure(0, weight=1)
 
         # Header with total box count
@@ -578,9 +579,19 @@ class PackingGUI:
         )
         header.grid(row=0, column=0, columnspan=2, sticky="ew")
 
+        # Problem specifics row (above legend)
+        problem_info = ttk.Frame(outer, padding=(8, 2))
+        problem_info.grid(row=1, column=0, columnspan=2, sticky="ew")
+        ttk.Label(problem_info, text="Problem:", font=("Segoe UI", 9, "bold")).grid(
+            row=0, column=0, sticky="w"
+        )
+        ttk.Label(problem_info, textvariable=self.solution_problem_var, font=("Segoe UI", 9)).grid(
+            row=0, column=1, sticky="w", padx=(4, 0)
+        )
+
         # Color legend (always visible under header)
         legend = ttk.Frame(outer, padding=(8, 2, 8, 6))
-        legend.grid(row=1, column=0, columnspan=2, sticky="ew")
+        legend.grid(row=2, column=0, columnspan=2, sticky="ew")
 
         ttk.Label(legend, text="Legend:", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, padx=(0, 10), sticky="w")
 
@@ -598,12 +609,12 @@ class PackingGUI:
         vbar = ttk.Scrollbar(outer, orient="vertical", command=can.yview)
         can.configure(yscrollcommand=vbar.set)
 
-        can.grid(row=2, column=0, sticky="nsew")
-        vbar.grid(row=2, column=1, sticky="ns")
+        can.grid(row=3, column=0, sticky="nsew")
+        vbar.grid(row=3, column=1, sticky="ns")
 
         # --- Navigation toolbar (Prev / Next + Zoom) ---
         toolbar = ttk.Frame(outer, padding=(8, 6))
-        toolbar.grid(row=3, column=0, columnspan=2, sticky="ew")
+        toolbar.grid(row=4, column=0, columnspan=2, sticky="ew")
         toolbar.columnconfigure(0, weight=0)
         toolbar.columnconfigure(1, weight=0)
         toolbar.columnconfigure(2, weight=1)  # spacer
@@ -717,6 +728,19 @@ class PackingGUI:
             n_boxes = len(getattr(sol, "boxes", []) or [])
         except Exception:
             n_boxes = "—"
+
+        # Update problem specifics row
+        if self.problem is not None:
+            try:
+                prob_box_len = getattr(self.problem, "box_length", "—")
+                prob_rect_count = len(getattr(self.problem, "rectangles", []) or [])
+                self.solution_problem_var.set(
+                    f"Box length = {prob_box_len}   Total rectangles = {prob_rect_count}"
+                )
+            except Exception:
+                self.solution_problem_var.set(": —")
+        else:
+            self.solution_problem_var.set(": —")
 
         # display chosen Algorithm
         algo_specification = self.algorithm_choice.get() or "Unknown"
