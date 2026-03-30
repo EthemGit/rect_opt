@@ -25,7 +25,7 @@ class PackingGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Rectangle Packing — OptAlgos")
-        self.root.geometry("1200x700")
+        self.root.state('zoomed')
 
         # fonts
         self.font_h1 = ("Segoe UI", 16, "bold")
@@ -549,8 +549,7 @@ class PackingGUI:
 
         win = tk.Toplevel(self.root)
         win.title("Solution Viewer")
-        win.geometry("1200x900")
-        win.minsize(800, 600)
+        win.state('zoomed')
 
         outer = ttk.Frame(win, padding=0)
         outer.pack(fill="both", expand=True)
