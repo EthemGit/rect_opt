@@ -421,33 +421,50 @@ class PartialOverlapNeighborhood(NeighborGenerator):
         new_sol.highlighted_ids = {cloned_rect.id}
         return new_sol
 
+    def _try_place_bottom_left(self, box, rect, box_length):
+        """Try to place rect (or its rotation) in a box using bottom-left scan."""
+        for y in range(box_length):
+            for x in range(box_length):
+                if box.rect_fits_here((x, y), rect):
+                    box.insert_rect(rect, (x, y))
+                    return True
+
+        rect_rot = Rectangle(id=rect.id, length=rect.width, width=rect.length, is_positioned=True)
+        for y in range(box_length):
+            for x in range(box_length):
+                if box.rect_fits_here((x, y), rect_rot):
+                    box.insert_rect(rect_rot, (x, y))
+                    return True
+
+        return False
+
     def _bottom_left_repack(self, rects, box_length):
-        new_box = OverlapBox(box_length)
+        """
+        Repack all rectangles without overlap using bottom-left heuristic.
+        Never drops rectangles: if a rectangle does not fit into existing boxes,
+        open a new box and place it there.
+        """
+        packed_boxes = [OverlapBox(box_length)]
         for rect in sorted(rects, key=lambda r: r.width * r.length, reverse=True):
             placed = False
-            for y in range(box_length):
-                if placed: break
-                for x in range(box_length):
-                    if new_box.rect_fits_here((x, y), rect):
-                        new_box.insert_rect(rect, (x, y))
-                        placed = True
-                        break
+            for box in packed_boxes:
+                if self._try_place_bottom_left(box, rect, box_length):
+                    placed = True
+                    break
+
             if not placed:
-                rect_rot = Rectangle(id=rect.id, length=rect.width, width=rect.length, is_positioned=True)
-                for y in range(box_length):
-                    if placed: break
-                    for x in range(box_length):
-                        if new_box.rect_fits_here((x, y), rect_rot):
-                            new_box.insert_rect(rect_rot, (x, y))
-                            placed = True
-                            break
-        return new_box
+                new_box = OverlapBox(box_length)
+                # A fresh box must be able to place the rectangle in one orientation.
+                if not self._try_place_bottom_left(new_box, rect, box_length):
+                    raise ValueError(f"Rectangle {rect.id} does not fit into an empty box")
+                packed_boxes.append(new_box)
+
+        return [b for b in packed_boxes if b.my_rects]
 
     def _compact_all_boxes(self, sol):
-        new_boxes =[
-            self._bottom_left_repack(list(b.my_rects.keys()), sol.box_length)
-            for b in sol.boxes
-        ]
+        new_boxes = []
+        for b in sol.boxes:
+            new_boxes.extend(self._bottom_left_repack(list(b.my_rects.keys()), sol.box_length))
 
         changed = True
         while changed:
@@ -467,9 +484,9 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                     if tgt_used + strag_area > sol.box_length ** 2:
                         continue
                     combined = list(new_boxes[j].my_rects.keys()) +[straggler]
-                    repacked = self._bottom_left_repack(combined, sol.box_length)
-                    if len(repacked.my_rects) == len(combined):
-                        new_boxes[j] = repacked
+                    repacked_boxes = self._bottom_left_repack(combined, sol.box_length)
+                    if len(repacked_boxes) == 1 and len(repacked_boxes[0].my_rects) == len(combined):
+                        new_boxes[j] = repacked_boxes[0]
                         new_boxes[i] = None
                         changed = True
                         break

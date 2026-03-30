@@ -129,6 +129,8 @@ class BenchmarkResult:
     test_instance: int
     number_boxes: int
     cpu_time_seconds: float
+    all_rects_positioned: bool
+    no_overlap: bool
     is_valid: bool
     error: str = ""
 
@@ -205,17 +207,37 @@ def _isolated_algo_worker(
         final_sol = solutions[-1]
         objective = len(final_sol.boxes)
 
-        valid = True
-        error = ""
+        expected_ids = {t.id for t in templates}
+        placed_ids = [r.id for b in final_sol.boxes for r in b.my_rects.keys()]
+        placed_id_set = set(placed_ids)
+        all_rects_positioned = (
+            len(placed_ids) == len(expected_ids)
+            and placed_id_set == expected_ids
+        )
+
+        no_overlap = True
+        error_parts = []
         try:
             final_sol.validate(permitted_error=0.0)
         except Exception as exc:
-            valid = False
-            error = str(exc)
+            no_overlap = False
+            error_parts.append(f"overlap/bounds: {exc}")
+
+        if not all_rects_positioned:
+            missing = len(expected_ids - placed_id_set)
+            duplicates = len(placed_ids) - len(placed_id_set)
+            error_parts.append(
+                f"incomplete placement: missing_ids={missing}, duplicate_ids={duplicates}"
+            )
+
+        valid = all_rects_positioned and no_overlap
+        error = "; ".join(error_parts)
 
         out_q.put({
             "cpu_time_seconds": cpu_s,
             "number_boxes": objective,
+            "all_rects_positioned": all_rects_positioned,
+            "no_overlap": no_overlap,
             "is_valid": valid,
             "error": error,
         })
@@ -223,6 +245,8 @@ def _isolated_algo_worker(
         out_q.put({
             "cpu_time_seconds": -1.0,
             "number_boxes": -1,
+            "all_rects_positioned": False,
+            "no_overlap": False,
             "is_valid": False,
             "error": str(exc),
         })
@@ -276,6 +300,8 @@ def run_spec(
                 payload = {
                     "cpu_time_seconds": worker_timeout,
                     "number_boxes": -1,
+                    "all_rects_positioned": False,
+                    "no_overlap": False,
                     "is_valid": False,
                     "error": f"Worker timeout after {worker_timeout:.1f}s",
                 }
@@ -284,6 +310,8 @@ def run_spec(
                     payload = {
                         "cpu_time_seconds": -1.0,
                         "number_boxes": -1,
+                        "all_rects_positioned": False,
+                        "no_overlap": False,
                         "is_valid": False,
                         "error": f"Worker exited with code {p.exitcode} without payload",
                     }
@@ -292,10 +320,16 @@ def run_spec(
 
             cpu_s = float(payload.get("cpu_time_seconds", -1.0))
             objective = int(payload.get("number_boxes", -1))
+            all_rects_positioned = bool(payload.get("all_rects_positioned", False))
+            no_overlap = bool(payload.get("no_overlap", False))
             valid = bool(payload.get("is_valid", False))
             error = str(payload.get("error", ""))
 
-            status = "OK" if valid else f"INVALID: {error}"
+            status = (
+                f"OK (all_rects={all_rects_positioned}, no_overlap={no_overlap})"
+                if valid
+                else f"INVALID (all_rects={all_rects_positioned}, no_overlap={no_overlap}): {error}"
+            )
             if verbose:
                 print(
                     f"  {algo_name:<32}  inst={inst_id}"
@@ -309,6 +343,8 @@ def run_spec(
                 test_instance=inst_id,
                 number_boxes=objective,
                 cpu_time_seconds=cpu_s,
+                all_rects_positioned=all_rects_positioned,
+                no_overlap=no_overlap,
                 is_valid=valid,
                 error=error,
             ))
@@ -347,12 +383,13 @@ def save_csv(results: List[BenchmarkResult], filename: str) -> None:
         writer = csv.writer(f)
         writer.writerow([
             "algo", "num_rects", "box_length", "test_instance",
-            "number_boxes", "cpu_time_seconds", "is_valid", "error",
+            "number_boxes", "cpu_time_seconds", "all_rects_positioned", "no_overlap", "is_valid", "error",
         ])
         for r in results:
             writer.writerow([
                 r.algo_name, r.num_rects, r.box_length, r.test_instance,
-                r.number_boxes, f"{r.cpu_time_seconds:.6f}", r.is_valid, r.error,
+                r.number_boxes, f"{r.cpu_time_seconds:.6f}",
+                r.all_rects_positioned, r.no_overlap, r.is_valid, r.error,
             ])
 
 
