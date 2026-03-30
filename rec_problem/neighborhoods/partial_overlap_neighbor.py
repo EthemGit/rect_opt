@@ -11,8 +11,8 @@ import time
 class OverlapBox(Box):
     """
     Specialized Box strictly for the Partial Overlap Neighborhood.
-    Utilizes an Adjacency Graph to process overlaps in O(N) time instead of O(N^2),
-    preventing massive CPU bottlenecks on instances > 500 rectangles.
+    Utilizes an Adjacency Graph to prevent massive CPU bottlenecks 
+    on instances > 500 rectangles.
     """
     def __init__(self, box_length):
         super().__init__(box_length)
@@ -98,7 +98,7 @@ class OverlapBox(Box):
 class PartialOverlapNeighborhood(NeighborGenerator):
     """
     Partial Overlap Geometry-based Local Search.
-    Highly optimized with graph-based delta tracking.
+    Optimized with graph-based delta tracking.
     """
     max_neighbors: int = 500
     time_budget_per_call_seconds: float = 1.5
@@ -212,7 +212,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
 
         if best_move is None:
             if self.allowed_overlap > 0.0:
-                # Option B: Accelerate overlap reduction under time pressure
+                # Accelerate overlap reduction under time pressure
                 time_elapsed = time.time() - start_time
                 time_remaining = (deadline - time.time()) if deadline else float('inf')
                 
@@ -245,7 +245,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                     return idle_sol
                 return None
 
-        # Option B: Accelerate overlap reduction under time pressure when a move is found
+        # Accelerate overlap reduction under time pressure when a move is found
         time_remaining = (deadline - time.time()) if deadline else float('inf')
         if time_remaining < 2.0 and deadline is not None:
             reduction = 0.015  # Aggressive reduction when time is critical
@@ -257,7 +257,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
 
     def _rect_overlap_penalty_fast(self, rect, rect_x, rect_y, box, allowed_overlap):
         """
-        Extremely optimized collision evaluation using inline AABB boundary checks
+        Optimized collision evaluation using inline AABB boundary checks
         to bypass the severe overhead of Python's built-in min() and max() functions.
         """
         penalty = 0.0
@@ -289,8 +289,8 @@ class PartialOverlapNeighborhood(NeighborGenerator):
     def _get_move_candidates(self, sol, allowed_overlap):
         violating_rects = set()
         
-        # O(1) mathematical bypass: If allowed_overlap is 1.0, there are NO hard violations. 
-        # This completely skips scanning 125,000 edges per step in the beginning.
+        # O(1) mathematical bypass: If allowed_overlap is 1.0, there are no hard violations. 
+        # This skips scanning thousands of edges per step in the beginning.
         if allowed_overlap < 1.0:
             for bi, box in enumerate(sol.boxes):
                 count = 0
@@ -299,7 +299,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
                         violating_rects.add((id1, bi))
                         violating_rects.add((id2, bi))
                         count += 1
-                        if count > 50: # Cap dictionary iteration to avoid O(N^2) stalls
+                        if count > 50:
                             break
 
         candidates =[]
@@ -441,8 +441,7 @@ class PartialOverlapNeighborhood(NeighborGenerator):
     def _bottom_left_repack(self, rects, box_length):
         """
         Repack all rectangles without overlap using bottom-left heuristic.
-        Never drops rectangles: if a rectangle does not fit into existing boxes,
-        open a new box and place it there.
+        If a rectangle does not fit into existing boxes, open a new box.
         """
         packed_boxes = [OverlapBox(box_length)]
         for rect in sorted(rects, key=lambda r: r.width * r.length, reverse=True):

@@ -1,7 +1,3 @@
-# Aufgabe: generates instances, validates inputs
-# Manages problem parameters (box size, rectangle list), creates instances, validates solutions.
-# Not necessarily tied to interface (could be helper class)
-
 from typing import List
 import random
 
@@ -57,7 +53,7 @@ class RectanglePackingProblem(Problem):
             rect = Rectangle(length=length, width=width, id=idx)
             self.rectangles.append(rect)
 
-        # NEW: immutable templates (sizes only) to reconstruct fresh rectangles by id
+        # immutable templates (sizes only) to reconstruct fresh rectangles by id
         self.rect_templates: dict[int, RectangleTemplate] = {
             r.id: RectangleTemplate(id=r.id, length=r.length, width=r.width) for r in self.rectangles
         }
@@ -110,7 +106,7 @@ class RectanglePackingProblem(Problem):
         new_sol = sol.clone()
 
         for box in new_sol.boxes:
-            # only check anchor positions — O(n_placed) instead of O(L²)
+            # only check anchor positions
             for (x, y) in box.get_anchor_positions():
                 if box.rect_fits_here(coordinates=(x, y), rect=item):
                     box.insert_rect(rect=item, coordinates=(x, y))

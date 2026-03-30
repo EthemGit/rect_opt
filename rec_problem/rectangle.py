@@ -1,5 +1,3 @@
-# repräsentiert ein Rechteck
-
 from dataclasses import dataclass
 from core.item import Item
 

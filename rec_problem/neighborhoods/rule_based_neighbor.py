@@ -1,4 +1,3 @@
-# rec_problem/neighborhoods/rule_based_neighbor.py
 from core.neighbor_generator import NeighborGenerator
 from dataclasses import dataclass
 import random
@@ -9,22 +8,20 @@ class RuleBasedNeighborhood(NeighborGenerator):
     """
     Rule-based neighborhood over permutations of rectangle IDs.
 
-    This version is intentionally guided for large instances:
     - Candidate IDs are selected from sparse/low-fill boxes first.
     - Within those boxes, larger and more awkward rectangles are prioritized.
-    - Insert moves are strongly biased toward earlier permutation positions.
-    - Only a small exploration tail (few random IDs and rare late moves) remains.
+    - Insert moves are biased toward earlier permutation positions.
 
-        Acceptance objective (lexicographic, minimized):
-            1) box_count
-            2) distance_to_largest_area_first
-            3) sparse_penalty
+    Acceptance objective:
+        1) fewer boxes
+        2) closer to largest-area-first permutation
+        3) penalise sparse boxes
     """
 
     max_neighbors: int = 500
     time_budget_per_call_seconds: float = 1.5
 
-    # Strategy knobs for guided search
+    # For guiding search
     focus_sparse_boxes: int = 7
     targeted_candidate_cap: int = 120
     random_candidate_cap: int = 18
@@ -34,7 +31,7 @@ class RuleBasedNeighborhood(NeighborGenerator):
     _laf_order_key: tuple = ()
     _laf_pos_by_id: dict | None = None
 
-    # Initial-solution knobs: deliberately bad, but bounded-bad.
+    # Guiding initial solution to make it deliberately, but bounded, bad.
     initial_target_gap_min_ratio: float = 0.14
     initial_target_gap_max_ratio: float = 0.24
     initial_attempts_per_rate: int = 4
@@ -238,7 +235,6 @@ class RuleBasedNeighborhood(NeighborGenerator):
         for i_early, i_late in zip(selected_early, selected_late):
             new_order[i_early], new_order[i_late] = new_order[i_late], new_order[i_early]
 
-        # Extra disruption for smaller/medium instances so the start is visibly worse.
         if n <= 500 and damage_rate >= 0.30:
             rounds = max(1, int(damage_rate * 8))
             max_start = max(0, boundary - 6)
@@ -267,7 +263,7 @@ class RuleBasedNeighborhood(NeighborGenerator):
 
     def _objective_key(self, sol) -> tuple:
         """
-        Lexicographic objective key:
+        Objective key:
         1) fewer boxes
         2) closer to largest-area-first permutation
         3) lower sparse-penalty
@@ -343,10 +339,6 @@ class RuleBasedNeighborhood(NeighborGenerator):
 
         min_idx = min(block_indices)
         # Try explicit swap with earlier small rectangles first.
-        # With first-improvement, move order matters. Prioritizing swap neighbors
-        # ensures true large-small exchanges are considered before pure insertions.
-        # This keeps total block pressure comparable while moving large sparse-box
-        # rects forward and pushing small rects back.
         area_by_id = {r.id: r.get_area() for r in solution.rectangles}
         block_set = set(block_rect_ids)
         earlier_ids = [rid for rid in perm[:min_idx] if rid not in block_set]
@@ -401,7 +393,7 @@ class RuleBasedNeighborhood(NeighborGenerator):
         Guided candidate selection:
         1) Focus on sparse/low-fill boxes.
         2) Prioritize larger and awkward rectangles from those boxes.
-        3) Keep a very small random tail for exploration.
+        3) Keep a random tail for exploration.
         """
         targeted_ids = self._get_targeted_candidates(problem, solution, perm_index)
         seen = set(targeted_ids)
@@ -464,7 +456,7 @@ class RuleBasedNeighborhood(NeighborGenerator):
     def _sample_insert_positions(self, src_idx: int, n: int) -> list:
         """
         Strongly directional insertions:
-        - mostly earlier positions (front-biased)
+        - mostly earlier positions
         - rarely include a couple of later positions for escape
         """
         if n <= 1:
@@ -472,14 +464,14 @@ class RuleBasedNeighborhood(NeighborGenerator):
 
         positions = []
 
-        # Main bias: earlier insertion points only.
+        # Bias: earlier insertion points only.
         if src_idx > 0:
             n_samples = min(src_idx, 6)
             step = max(1, src_idx // n_samples)
             positions.extend(range(0, src_idx, step))
             positions.append(src_idx - 1)
 
-        # Exploration tail: occasionally include a couple of later points.
+        # Exploration: occasionally include a couple of later points.
         if src_idx + 1 < n and random.random() < self.exploration_late_move_prob:
             positions.append(src_idx + 1)
             positions.append(n - 1)

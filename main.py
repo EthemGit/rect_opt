@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import math
 
 
 # Problem generator
@@ -28,11 +27,9 @@ class PackingGUI:
         self.root.state('zoomed')
 
         # fonts
-        self.font_h1 = ("Segoe UI", 16, "bold")
         self.font_h2 = ("Segoe UI", 12, "bold")
         self.font = ("Segoe UI", 10)
 
-        # colors
         # colors
         self.color_new = "#07631c"           # dark green - changed box
         self.color_moved = "#5aa86a"         # middle green - position changed only
@@ -43,15 +40,10 @@ class PackingGUI:
         self._step_new_keys = None           # list[set], same length as self._solutions
         self._step_change_types = None       # list[dict], maps rect_id -> 'box_changed' or 'position_only'
 
-        # per-step metadata
-        self._step_new_keys = None    # list[set], same length as self._solutions
-
         # state
         self.rectangles = []
         self.algorithm = None
         self.algorithm_choice = tk.StringVar(value="")  # combined algorithm+strategy choice
-        self.selected_strategy_obj = None
-        self.selected_neighborhood_obj = None
         self.problem = None
         self.strategy_height_ratio = 0.40
         self._solutions = None       # list of solutions from solve()
@@ -79,7 +71,6 @@ class PackingGUI:
         self._locked_cols = None
         self._locked_cell_size = None
         self._locked_scale = None
-        self._locked_box_len = None
 
         # draw constants (so we reuse the same numbers everywhere)
         self._gap = 24
@@ -93,11 +84,10 @@ class PackingGUI:
 
         self.root.bind("<Configure>", self._on_resize)
 
-    def _ensure_final_layout_lock(self, force: bool = False):
+    def _ensure_final_layout_lock(self):
         """Compute layout from final step + current zoom.
 
-        As zoom increases, the number of columns is reduced dynamically so
-        boxes can grow without requiring horizontal scrolling.
+        As zoom increases, the number of columns is reduced dynamically.
         """
         if not self._solutions or not self.solution_canvas:
             return
@@ -109,26 +99,27 @@ class PackingGUI:
 
         c = self.solution_canvas
         w = max(c.winfo_width(), 1)
-        gap = self._gap
-
-        n_final = len(boxes_final)
-        desired_cell = int(self.BASE_CELL * self._zoom)
-        desired_cell = max(self.MIN_CELL, min(1200, desired_cell))
-
-        max_cols_by_zoom = int((w - gap) // (desired_cell + gap))
-        max_cols_by_zoom = max(1, max_cols_by_zoom)
-
-        cols = int(max(1, min(n_final, self.MAX_COLS, max_cols_by_zoom)))
-
-        cell_w_avail = (w - (cols + 1) * gap) / cols
-        cell_size = int(min(cell_w_avail, desired_cell))
-        cell_size = max(1, cell_size)
-        scale = cell_size / float(box_len_final)
+        cols, cell_size, scale = self._compute_layout_from_count_and_box_len(
+            len(boxes_final), box_len_final, w
+        )
 
         self._locked_cols = cols
         self._locked_cell_size = cell_size
         self._locked_scale = scale
-        self._locked_box_len = box_len_final
+
+    def _compute_layout_from_count_and_box_len(self, box_count: int, box_len: int, canvas_width: int):
+        """Return (cols, cell_size, scale) from box count, box length, and canvas width."""
+        gap = self._gap
+        desired_cell = int(self.BASE_CELL * self._zoom)
+        desired_cell = max(self.MIN_CELL, min(1200, desired_cell))
+        max_cols_by_zoom = int((canvas_width - gap) // (desired_cell + gap))
+        max_cols_by_zoom = max(1, max_cols_by_zoom)
+        cols = int(max(1, min(box_count, self.MAX_COLS, max_cols_by_zoom)))
+        cell_w_avail = (canvas_width - (cols + 1) * gap) / cols
+        cell_size = int(min(cell_w_avail, desired_cell))
+        cell_size = max(1, cell_size)
+        scale = cell_size / float(box_len)
+        return cols, cell_size, scale
 
 
     # ---------------- Left side: Problem Generation ----------------
@@ -315,50 +306,41 @@ class PackingGUI:
             return
         
         try:
+            local_search_common = {
+                "max_iters": 20000,
+                "stride": 5,
+                "first_improvement": True,
+                "max_neighbors_per_step": 2000,
+                "time_limit_seconds": 15.0,
+            }
+
             if choice == "Greedy - Largest-Area First":
-                self.selected_strategy_obj = LargestAreaFirstStrategy()
-                self.algorithm = GreedyAlgo(self.selected_strategy_obj)
+                self.algorithm = GreedyAlgo(LargestAreaFirstStrategy())
             elif choice == "Greedy - Longest-Side First":
-                self.selected_strategy_obj = LongestSideFirstStrategy()
-                self.algorithm = GreedyAlgo(self.selected_strategy_obj)
+                self.algorithm = GreedyAlgo(LongestSideFirstStrategy())
             elif choice == "Local Search - Geometry-Based":
-                self.selected_neighborhood_obj = GeometryBasedNeighborhood(max_neighbors=500)
-                stride = 5
+                neighborhood = GeometryBasedNeighborhood(max_neighbors=500)
                 self.algorithm = LocalSearchAlgo(
-                    self.selected_neighborhood_obj,
-                    max_iters=20000,
-                    stride=stride,
-                    first_improvement=True,
-                    max_neighbors_per_step=2000,
-                    time_limit_seconds=15.0,
+                    neighborhood,
+                    **local_search_common,
                     no_improve_limit=10
                 )
             elif choice == "Local Search - Partial Overlap":
-                self.selected_neighborhood_obj = PartialOverlapNeighborhood(max_neighbors=500)
-                stride = 5
+                neighborhood = PartialOverlapNeighborhood(max_neighbors=500)
                 self.algorithm = LocalSearchAlgo(
-                    self.selected_neighborhood_obj,
-                    max_iters=20000,
-                    stride=stride,
-                    first_improvement=True,
-                    max_neighbors_per_step=2000,
-                    time_limit_seconds=15.0,
+                    neighborhood,
+                    **local_search_common,
                     no_improve_limit=1
                 )
             elif choice == "Local Search - Rule-Based":
-                self.selected_neighborhood_obj = RuleBasedNeighborhood(max_neighbors=2000)
+                neighborhood = RuleBasedNeighborhood(max_neighbors=2000)
                 rect_count = len(getattr(self.problem, "rectangles", []) or [])
                 proportional_limit = max(1, rect_count // 10)
                 max_allowed = max(10, rect_count // 3)
                 non_box_improve_accept_limit = max(10, min(proportional_limit, max_allowed))
-                stride = 5
                 self.algorithm = LocalSearchAlgo(
-                    self.selected_neighborhood_obj,
-                    max_iters=20000,
-                    stride=stride,
-                    first_improvement=True,
-                    max_neighbors_per_step=2000,
-                    time_limit_seconds=15.0,
+                    neighborhood,
+                    **local_search_common,
                     no_improve_limit=15,
                     non_box_improve_accept_limit=non_box_improve_accept_limit
                 )
@@ -429,30 +411,14 @@ class PackingGUI:
                 final = None
 
             if final and getattr(final, "boxes", None) and getattr(final, "box_length", None):
-                n_final = len(final.boxes)
-                box_len_final = final.box_length
-                desired_cell = int(self.BASE_CELL * self._zoom)
-                desired_cell = max(self.MIN_CELL, min(1200, desired_cell))
-                max_cols_by_zoom = int((w - gap) // (desired_cell + gap))
-                max_cols_by_zoom = max(1, max_cols_by_zoom)
-                cols = int(max(1, min(n_final, self.MAX_COLS, max_cols_by_zoom)))
-                cell_w_avail = (w - (cols + 1) * gap) / cols
-                cell_size = int(min(cell_w_avail, desired_cell))
-                cell_size = max(1, cell_size)
-                scale = cell_size / float(box_len_final)
-                self._locked_box_len = box_len_final
+                cols, cell_size, scale = self._compute_layout_from_count_and_box_len(
+                    len(final.boxes), final.box_length, w
+                )
             else:
                 # As a last resort, compute from the CURRENT step
-                n_cur = len(boxes)
-                desired_cell = int(self.BASE_CELL * self._zoom)
-                desired_cell = max(self.MIN_CELL, min(1200, desired_cell))
-                max_cols_by_zoom = int((w - gap) // (desired_cell + gap))
-                max_cols_by_zoom = max(1, max_cols_by_zoom)
-                cols = int(max(1, min(n_cur, self.MAX_COLS, max_cols_by_zoom)))
-                cell_w_avail = (w - (cols + 1) * gap) / cols
-                cell_size = int(min(cell_w_avail, desired_cell))
-                cell_size = max(1, cell_size)
-                scale = cell_size / float(box_len)
+                cols, cell_size, scale = self._compute_layout_from_count_and_box_len(
+                    len(boxes), box_len, w
+                )
 
             self._locked_cols = cols
             self._locked_cell_size = cell_size
@@ -546,16 +512,6 @@ class PackingGUI:
         # Vertical-only scrolling
         c.configure(scrollregion=(0, 0, w, content_bottom + gap))
 
-    def _show_final_solution(self):
-        if not self._solutions:
-            messagebox.showwarning("No solution", "No solution available to display.")
-            return
-        final = self._solutions[-1]
-        self.current_solution = final
-
-        self._ensure_solution_window()
-        self._render_solution(final)
-
     def _ensure_solution_window(self):
         """Create (or reuse) a dedicated pop-up window for rendering solutions."""
         if self.solution_window and self.solution_window.winfo_exists():
@@ -589,7 +545,7 @@ class PackingGUI:
             row=0, column=1, sticky="w", padx=(4, 0)
         )
 
-        # Color legend (always visible under header)
+        # Color legend
         legend = ttk.Frame(outer, padding=(8, 2, 8, 6))
         legend.grid(row=2, column=0, columnspan=2, sticky="ew")
 
@@ -660,7 +616,7 @@ class PackingGUI:
         win.protocol("WM_DELETE_WINDOW", _on_close)
 
         can.bind("<Configure>", lambda e: (
-            self._ensure_final_layout_lock(force=True),
+            self._ensure_final_layout_lock(),
             self._render_solution(self.current_solution) if getattr(self, "current_solution", None) else None
         ))
         # Zoom keys
@@ -699,14 +655,25 @@ class PackingGUI:
     def _zoom_change(self, factor: float):
         self._zoom = max(0.4, min(3.0, self._zoom * factor))
         if self.current_solution:
-            self._ensure_final_layout_lock(force=True)
+            self._ensure_final_layout_lock()
             self._render_solution(self.current_solution)
 
     def _zoom_reset(self):
         self._zoom = 1.4
         if self.current_solution:
-            self._ensure_final_layout_lock(force=True)
+            self._ensure_final_layout_lock()
             self._render_solution(self.current_solution)
+
+    def _format_overlap_percentage(self, sol):
+        """Return clamped overlap percentage string (e.g. '42.0%') or None."""
+        allowed_overlap = getattr(sol, "allowed_overlap", None)
+        if allowed_overlap is None:
+            return None
+        try:
+            overlap_pct = max(0.0, min(1.0, float(allowed_overlap))) * 100.0
+            return f"{overlap_pct:.1f}%"
+        except (TypeError, ValueError):
+            return None
 
     def _show_solution_at(self, idx: int):
         if not self._solutions:
@@ -753,21 +720,13 @@ class PackingGUI:
             if is_compacting:
                 extra = f"  —  Compacting the boxes"
             elif is_reheating:
-                allowed_overlap = getattr(sol, "allowed_overlap", None)
-                if allowed_overlap is not None:
-                    try:
-                        overlap_pct = max(0.0, min(1.0, float(allowed_overlap))) * 100.0
-                        extra = f"  —  {overlap_pct:.1f}% - Reheating after compaction"
-                    except (TypeError, ValueError):
-                        pass
+                overlap_pct = self._format_overlap_percentage(sol)
+                if overlap_pct is not None:
+                    extra = f"  —  {overlap_pct} - Reheating after compaction"
             else:
-                allowed_overlap = getattr(sol, "allowed_overlap", None)
-                if allowed_overlap is not None:
-                    try:
-                        overlap_pct = max(0.0, min(1.0, float(allowed_overlap))) * 100.0
-                        extra = f"  —  Allowed overlap: {overlap_pct:.1f}%"
-                    except (TypeError, ValueError):
-                        pass
+                overlap_pct = self._format_overlap_percentage(sol)
+                if overlap_pct is not None:
+                    extra = f"  —  Allowed overlap: {overlap_pct}"
 
         self.solution_header_var.set(
             f"{step_txt}  —  Boxes: {n_boxes}  —  Algorithm: {algo_specification}{extra}"

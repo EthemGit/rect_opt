@@ -29,7 +29,7 @@ class GeometryBasedNeighborhood(NeighborGenerator):
         """
         generated = 0  # performance. to compare with max_neighbors and avoid too long runtime
 
-        # Speedup A: build smarter rectangle candidates (last K boxes, largest M)
+        # Speedup: build smarter rectangle candidates (last K boxes, largest M)
         candidates = self._build_candidates(current_solution)
 
         for rect, src_box_idx in candidates:
@@ -108,7 +108,7 @@ class GeometryBasedNeighborhood(NeighborGenerator):
 
     # ------- helpers ------------------
 
-        # ---- Speedup patch A helper: pick largest M rects from last K boxes ----
+        # ---- Speedup helper: pick largest M rects from last K boxes ----
     def _build_candidates(self, solution, K: int = 2, M: int = 25):
         """
         Return a list of (rect, src_box_idx) from the last K boxes.

@@ -3,6 +3,8 @@ __pycache__/
 .vscode/
 .env/
 *.log
+.claude/
 CLAUDE.md
 PROGRESS.md
 .venv/
+optalgos_project_requirements.md

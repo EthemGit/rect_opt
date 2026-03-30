@@ -1,8 +1,3 @@
-# implements selection_strategy
-# used by GreedyAlgo.solve() to pick and place next rectangle
-# places rectangle
-# Resulting RectanglePackingSolution displayed
-
 from core.selection_strategy import SelectionStrategy
 from dataclasses import dataclass
 

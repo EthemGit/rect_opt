@@ -1,13 +1,8 @@
-# Holds rectangles in boxes, computes score
-# Stores current placement of rectangles, box assignments, can calculate objective (number of boxes).
-# implements solution
-
 from typing import List
 
 from core.solution import Solution
 from .rectangle import Rectangle
 from .box import Box
-import copy
 
 class RectanglePackingSolution(Solution):
     def __init__(self, boxes, box_length, rectangles, permutation=None):

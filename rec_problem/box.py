@@ -1,5 +1,3 @@
-# repräsentiert eine Box. Hat Rectangles als Attribute
-
 from typing import Dict, Tuple, Set, List
 from rec_problem.rectangle import Rectangle
 from core.item import Item
