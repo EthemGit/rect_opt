@@ -321,7 +321,7 @@ class PackingGUI:
                     first_improvement=True,
                     max_neighbors_per_step=2000,
                     time_limit_seconds=15.0,
-                    no_improve_limit=1
+                    no_improve_limit=10
                 )
             elif choice == "Local Search - Partial Overlap":
                 self.selected_neighborhood_obj = PartialOverlapNeighborhood(max_neighbors=500)

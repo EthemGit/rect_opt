@@ -166,6 +166,7 @@ def build_algorithm(algo_name: str, time_limit: float):
             first_improvement=True,
             max_neighbors_per_step=500,
             time_limit_seconds=time_limit,
+            no_improve_limit=10,
         )
     if algo_name == "LocalSearch-RuleBased":
         return LocalSearchAlgo(
