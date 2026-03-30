@@ -49,8 +49,7 @@ class PackingGUI:
         # state
         self.rectangles = []
         self.algorithm = None
-        self.primary_choice = tk.StringVar(value="")      # "greedy" or "local"
-        self.secondary_choice = tk.StringVar(value="")
+        self.algorithm_choice = tk.StringVar(value="")  # combined algorithm+strategy choice
         self.selected_strategy_obj = None
         self.selected_neighborhood_obj = None
         self.problem = None
@@ -260,182 +259,115 @@ class PackingGUI:
 
     def _render_primary_options(self):
         self._clear_strategy_frame()
-        title = ttk.Label(self.strategy_frame, text="Select Algorithm", font=self.font_h2)
-        title.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        title = ttk.Label(self.strategy_frame, text="Select an Algorithm", font=self.font_h2)
+        title.grid(row=0, column=0, sticky="w", pady=(0, 8))
 
-        rb_greedy = ttk.Radiobutton(
-            self.strategy_frame, text="Greedy", value="greedy",
-            variable=self.primary_choice, command=self._on_primary_changed
-        )
-        rb_local = ttk.Radiobutton(
-            self.strategy_frame, text="Local Search", value="local",
-            variable=self.primary_choice, command=self._on_primary_changed
-        )
-        rb_greedy.grid(row=1, column=0, sticky="w", pady=2)
-        rb_local.grid(row=2, column=0, sticky="w", pady=2)
+        options = [
+            ("Greedy - Largest-Area First", "Greedy - Largest-Area First"),
+            ("Greedy - Longest-Side First", "Greedy - Longest-Side First"),
+            ("Local Search - Geometry-Based", "Local Search - Geometry-Based"),
+            ("Local Search - Partial Overlap", "Local Search - Partial Overlap"),
+            ("Local Search - Rule-Based", "Local Search - Rule-Based"),
+        ]
+        
+        self.algorithm_choice.set("")
+        
+        disabled = self.problem is None
+        
+        for idx, (label, value) in enumerate(options, start=1):
+            rb = ttk.Radiobutton(
+                self.strategy_frame,
+                text=label,
+                value=value,
+                variable=self.algorithm_choice
+            )
+            rb.grid(row=idx, column=0, sticky="w", pady=2)
+            if disabled:
+                rb.state(["disabled"])
 
-        choose_btn = ttk.Button(self.strategy_frame, text="Choose", command=self._on_primary_choose)
-        choose_btn.grid(row=99, column=2, sticky="e", pady=(16, 0))
+        run_btn = ttk.Button(self.strategy_frame, text=START_ALGO_BUTTON_DESCRIPTION, command=self._on_algorithm_chosen)
+        run_btn.grid(row=99, column=0, sticky="e", pady=(12, 0))
 
         # If rectangles not generated yet and no problem exists => disable controls
         if self.problem is None:
             hint = ttk.Label(self.strategy_frame, text="Generate a problem first.", foreground="#888")
-            hint.grid(row=3, column=0, sticky="w", pady=(8, 0))
-            rb_greedy.state(["disabled"])
-            rb_local.state(["disabled"])
-            choose_btn.state(["disabled"])
+            hint.grid(row=7, column=0, sticky="w", pady=(8, 0))
+            run_btn.state(["disabled"])
 
-    def _on_primary_changed(self):
-        """If you select greedy or local without pressing 'Choose' yet. """
-        pass
-
-    def _on_primary_choose(self):
+    def _on_algorithm_chosen(self):
         if self.problem is None:
             messagebox.showwarning("No Problem", "Please generate a problem first.")
             return
 
-        choice = self.primary_choice.get()
-        if choice == "greedy":
-            self._render_greedy_options()
-        elif choice == "local":
-            self._render_local_search_options()
-        else:
-            messagebox.showwarning("Selection Required", "Please select Greedy or Local Search.")
-
-    def _render_greedy_options(self):
-        self._clear_strategy_frame()
-        title = ttk.Label(self.strategy_frame, text="Greedy — Select Strategy", font=self.font_h2)
-        title.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
-
-        self.secondary_choice.set("")
-        ttk.Radiobutton(
-            self.strategy_frame, text="Largest-Area-First", value="largest_area",
-            variable=self.secondary_choice
-        ).grid(row=1, column=0, sticky="w", pady=2)
-        ttk.Radiobutton(
-            self.strategy_frame, text="Longest-Side-First", value="longest_side",
-            variable=self.secondary_choice
-        ).grid(row=2, column=0, sticky="w", pady=2)
-
-        # Add buttons Return (bottom-left) and Choose (bottom-right)
-        ttk.Button(self.strategy_frame, text="Return", command=self._render_primary_options).grid(
-            row=99, column=0, sticky="w", pady=(16, 0)
-        )
-        ttk.Button(self.strategy_frame, text=START_ALGO_BUTTON_DESCRIPTION, command=self._on_greedy_choose).grid(
-            row=99, column=2, sticky="e", pady=(16, 0)
-        )
-
-    def _render_local_search_options(self):
-        self._clear_strategy_frame()
-        title = ttk.Label(self.strategy_frame, text="Local Search — Select Neighborhood", font=self.font_h2)
-        title.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
-
-        self.secondary_choice.set("")
-        ttk.Radiobutton(
-            self.strategy_frame, text="Geometry-Based", value="geometry",
-            variable=self.secondary_choice
-        ).grid(row=1, column=0, sticky="w", pady=2)
-        ttk.Radiobutton(
-            self.strategy_frame, text="Partial Overlap", value="partial_overlap",
-            variable=self.secondary_choice
-        ).grid(row=2, column=0, sticky="w", pady=2)
-        ttk.Radiobutton(
-            self.strategy_frame, text="Rule-Based", value="rule_based",
-            variable=self.secondary_choice
-        ).grid(row=3, column=0, sticky="w", pady=2)
-
-        ttk.Button(self.strategy_frame, text="Return", command=self._render_primary_options).grid(
-            row=99, column=0, sticky="w", pady=(16, 0)
-        )
-        ttk.Button(self.strategy_frame, text=START_ALGO_BUTTON_DESCRIPTION, command=self._on_local_choose).grid(
-            row=99, column=2, sticky="e", pady=(16, 0)
-        )
-
-    def _on_greedy_choose(self):
-        token = self.secondary_choice.get()
-        if not token:
-            messagebox.showwarning("Selection Required", "Please choose one Greedy strategy.")
-            return
-
-        if self.problem is None:
-            messagebox.showwarning("No Problem", "Please generate a problem first.")
-            return
-
-        # Map user choice to strategy object
-        if token == "largest_area":
-            self.selected_strategy_obj = LargestAreaFirstStrategy()
-        elif token == "longest_side":
-            self.selected_strategy_obj = LongestSideFirstStrategy()
-        else:
-            messagebox.showerror("Unknown Strategy", f"Unknown strategy token: {token}")
-            return
-
-        try:
-            # 1) Create algo
-            self.algorithm = GreedyAlgo(self.selected_strategy_obj)
-
-            # 2) get list of solution steps
-            self._solutions = self.algorithm.solve(self.problem)
-            self._compute_step_new_sets()
-
-            if not self._solutions or len(self._solutions) == 0:
-                messagebox.showwarning("Empty result", "The algorithm returned no solutions.")
-                return
-
-            # Show the starting solution at index 0
-            self._show_solution_at(0)
-
-        except Exception as e:
-            messagebox.showerror("Error running Greedy", str(e))
-
-    def _on_local_choose(self):
-        if self.problem is None:
-            messagebox.showwarning("No Problem", "Please generate a problem first.")
-            return
-
-        token = self.secondary_choice.get()
-        if not token:
-            messagebox.showwarning("Selection Required", "Please choose one Local Search neighborhood.")
+        choice = self.algorithm_choice.get()
+        if not choice:
+            messagebox.showwarning("Selection Required", "Please select an algorithm.")
             return
         
-        no_improve_limit = 1
-        non_box_improve_accept_limit = 0
-        if token == "geometry":
-            self.selected_neighborhood_obj = GeometryBasedNeighborhood(max_neighbors=500)
-        elif token == "partial_overlap":
-            self.selected_neighborhood_obj = PartialOverlapNeighborhood(max_neighbors=500)
-        elif token == "rule_based":
-            self.selected_neighborhood_obj = RuleBasedNeighborhood(max_neighbors=2000)
-            no_improve_limit = 15  # stochastic sampling: retry before giving up
-            rect_count = len(getattr(self.problem, "rectangles", []) or [])
-            # Proportional cap: 10% of instance size, bounded from below.
-            proportional_limit = max(1, rect_count // 10)
-            max_allowed = max(10, rect_count // 3)
-            non_box_improve_accept_limit = max(10, min(proportional_limit, max_allowed))
-        else:
-            messagebox.showerror("Unknown Strategy", f"Unknown strategy token: {token}")
-            return
-
         try:
-            stride = 5
-            self.algorithm = LocalSearchAlgo(self.selected_neighborhood_obj,
-                                             max_iters=20000,
-                                             stride=stride,
-                                             first_improvement=True,
-                                             max_neighbors_per_step=2000,
-                                             time_limit_seconds=15.0,
-                                             no_improve_limit=no_improve_limit,
-                                             non_box_improve_accept_limit=non_box_improve_accept_limit)
+            if choice == "Greedy - Largest-Area First":
+                self.selected_strategy_obj = LargestAreaFirstStrategy()
+                self.algorithm = GreedyAlgo(self.selected_strategy_obj)
+            elif choice == "Greedy - Longest-Side First":
+                self.selected_strategy_obj = LongestSideFirstStrategy()
+                self.algorithm = GreedyAlgo(self.selected_strategy_obj)
+            elif choice == "Local Search - Geometry-Based":
+                self.selected_neighborhood_obj = GeometryBasedNeighborhood(max_neighbors=500)
+                stride = 5
+                self.algorithm = LocalSearchAlgo(
+                    self.selected_neighborhood_obj,
+                    max_iters=20000,
+                    stride=stride,
+                    first_improvement=True,
+                    max_neighbors_per_step=2000,
+                    time_limit_seconds=15.0,
+                    no_improve_limit=1
+                )
+            elif choice == "Local Search - Partial Overlap":
+                self.selected_neighborhood_obj = PartialOverlapNeighborhood(max_neighbors=500)
+                stride = 5
+                self.algorithm = LocalSearchAlgo(
+                    self.selected_neighborhood_obj,
+                    max_iters=20000,
+                    stride=stride,
+                    first_improvement=True,
+                    max_neighbors_per_step=2000,
+                    time_limit_seconds=15.0,
+                    no_improve_limit=1
+                )
+            elif choice == "Local Search - Rule-Based":
+                self.selected_neighborhood_obj = RuleBasedNeighborhood(max_neighbors=2000)
+                rect_count = len(getattr(self.problem, "rectangles", []) or [])
+                proportional_limit = max(1, rect_count // 10)
+                max_allowed = max(10, rect_count // 3)
+                non_box_improve_accept_limit = max(10, min(proportional_limit, max_allowed))
+                stride = 5
+                self.algorithm = LocalSearchAlgo(
+                    self.selected_neighborhood_obj,
+                    max_iters=20000,
+                    stride=stride,
+                    first_improvement=True,
+                    max_neighbors_per_step=2000,
+                    time_limit_seconds=15.0,
+                    no_improve_limit=15,
+                    non_box_improve_accept_limit=non_box_improve_accept_limit
+                )
+            else:
+                messagebox.showerror("Unknown Algorithm", f"Unknown algorithm choice: {choice}")
+                return
+
             self._solutions = self.algorithm.solve(self.problem)
             self._solutions = self._deduplicate_solutions(self._solutions)
             self._compute_step_new_sets()
+            
             if not self._solutions:
                 messagebox.showwarning("Empty result", "The algorithm returned no solutions.")
                 return
+
             self._show_solution_at(0)
             
         except Exception as e:
-            messagebox.showerror("Error running Local Search", str(e))
+            messagebox.showerror("Error running algorithm", str(e))
 
 
     # ---------------- Solution rendering ---------------------------------------------------------
@@ -773,18 +705,10 @@ class PackingGUI:
             n_boxes = "—"
 
         # display chosen Algorithm
-        mapping = {
-            "rule_based": "Rule-Based",
-            "geometry": "Geometry-Based",
-            "partial_overlap": "Partial Overlap",
-            "largest_area": "Largest-Area-First",
-            "longest_side": "Longest-Side-First",
-        }
-        algo = "Greedy" if self.primary_choice.get() == "greedy" else "Local Search"
-        algo_specification = mapping.get(self.secondary_choice.get(), "Unknown")
+        algo_specification = self.algorithm_choice.get() or "Unknown"
 
         extra = ""
-        if self.primary_choice.get() == "local" and self.secondary_choice.get() == "partial_overlap":
+        if algo_specification == "Local Search - Partial Overlap":
             is_compacting = getattr(sol, "is_compacting", False)
             is_reheating = getattr(sol, "is_reheating", False)
             
@@ -808,7 +732,7 @@ class PackingGUI:
                         pass
 
         self.solution_header_var.set(
-            f"{step_txt}  —  Boxes: {n_boxes}  —  Algorithm: {algo} {algo_specification}{extra}"
+            f"{step_txt}  —  Boxes: {n_boxes}  —  Algorithm: {algo_specification}{extra}"
         )
 
         self._update_nav_buttons()
