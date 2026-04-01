@@ -399,8 +399,17 @@ class PackingGUI:
         table_frame.rowconfigure(0, weight=1)
         table_frame.columnconfigure(0, weight=1)
 
+        table_style = ttk.Style(self.root)
+        table_style.configure("RectTable.Treeview.Heading", font=("Segoe UI", 10, "bold"))
+
         columns = ("ID", "Length", "Width")
-        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=22)
+        self.tree = ttk.Treeview(
+            table_frame,
+            columns=columns,
+            show="headings",
+            height=22,
+            style="RectTable.Treeview",
+        )
 
         for col in columns:
             self.tree.heading(col, text=col)
