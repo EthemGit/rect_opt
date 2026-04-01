@@ -20,6 +20,214 @@ from rec_problem.neighborhoods.rule_based_neighbor import RuleBasedNeighborhood
 
 START_ALGO_BUTTON_DESCRIPTION = "Run Algorithm"
 
+
+class RangeSlider(ttk.Frame):
+    """Single slider widget with two handles to select an integer range."""
+
+    def __init__(
+        self,
+        parent,
+        from_: int,
+        to: int,
+        min_value: int,
+        max_value: int,
+        width: int = 170,
+        height: int = 64,
+        command=None,
+    ):
+        super().__init__(parent)
+        self.from_ = int(from_)
+        self.to = int(to)
+        self.command = command
+        self._active_handle = "min"
+        self._pad = 10
+        self._track_y = 24
+        self._handle_r = 6
+
+        self.min_value = int(max(self.from_, min(min_value, self.to)))
+        self.max_value = int(max(self.from_, min(max_value, self.to)))
+        if self.min_value > self.max_value:
+            self.min_value, self.max_value = self.max_value, self.min_value
+
+        self.canvas = tk.Canvas(self, width=width, height=height, highlightthickness=0)
+        self.canvas.pack(fill="x", expand=True)
+
+        self.canvas.bind("<Button-1>", self._on_press)
+        self.canvas.bind("<B1-Motion>", self._on_drag)
+        self.canvas.bind("<Configure>", lambda _e: self._draw())
+
+        self._draw()
+
+    def _canvas_width(self) -> int:
+        configured = int(self.canvas.cget("width"))
+        actual = int(self.canvas.winfo_width())
+        return actual if actual > 2 else configured
+
+    def _value_to_x(self, value: int) -> int:
+        span = max(1, self.to - self.from_)
+        width = self._canvas_width()
+        usable = max(1, width - 2 * self._pad)
+        return int(self._pad + ((value - self.from_) / span) * usable)
+
+    def _x_to_value(self, x: int) -> int:
+        width = self._canvas_width()
+        usable = max(1, width - 2 * self._pad)
+        x_clamped = max(self._pad, min(x, width - self._pad))
+        ratio = (x_clamped - self._pad) / usable
+        value = self.from_ + ratio * (self.to - self.from_)
+        return int(round(value))
+
+    def _draw(self):
+        self.canvas.delete("all")
+        width = self._canvas_width()
+        y = self._track_y
+
+        self.canvas.create_line(self._pad, y, width - self._pad, y, fill="#b5b5b5", width=3)
+
+        x_min = self._value_to_x(self.min_value)
+        x_max = self._value_to_x(self.max_value)
+        self.canvas.create_line(x_min, y, x_max, y, fill="#1a73e8", width=5)
+
+        r = self._handle_r
+        self.canvas.create_oval(x_min - r, y - r, x_min + r, y + r, fill="#ffffff", outline="#1a73e8", width=2)
+        self.canvas.create_oval(x_max - r, y - r, x_max + r, y + r, fill="#ffffff", outline="#1a73e8", width=2)
+
+        # Selected range on top.
+        self.canvas.create_text(
+            width // 2,
+            2,
+            text=f"{self.min_value}-{self.max_value}",
+            fill="#1a73e8",
+            anchor="n",
+        )
+
+        # Full slider range below the spectrum.
+        value_y = y + 14
+        self.canvas.create_text(self._pad, value_y, text=str(self.from_), anchor="nw", fill="#666666")
+        self.canvas.create_text(width - self._pad, value_y, text=str(self.to), anchor="ne", fill="#666666")
+
+    def _on_press(self, event):
+        x_min = self._value_to_x(self.min_value)
+        x_max = self._value_to_x(self.max_value)
+        self._active_handle = "min" if abs(event.x - x_min) <= abs(event.x - x_max) else "max"
+        self._update_from_x(event.x)
+
+    def _on_drag(self, event):
+        self._update_from_x(event.x)
+
+    def _update_from_x(self, x: int):
+        value = self._x_to_value(x)
+        changed = False
+        if self._active_handle == "min":
+            new_min = min(value, self.max_value)
+            if new_min != self.min_value:
+                self.min_value = new_min
+                changed = True
+        else:
+            new_max = max(value, self.min_value)
+            if new_max != self.max_value:
+                self.max_value = new_max
+                changed = True
+
+        self._draw()
+        if changed and self.command:
+            self.command(self.min_value, self.max_value)
+
+    def get(self):
+        return int(self.min_value), int(self.max_value)
+
+    def set(self, min_value: int, max_value: int):
+        self.min_value = int(max(self.from_, min(min_value, self.to)))
+        self.max_value = int(max(self.from_, min(max_value, self.to)))
+        if self.min_value > self.max_value:
+            self.min_value, self.max_value = self.max_value, self.min_value
+        self._draw()
+
+
+class ValueSlider(ttk.Frame):
+    """Single-handle integer slider styled like RangeSlider."""
+
+    def __init__(
+        self,
+        parent,
+        from_: int,
+        to: int,
+        value: int,
+        width: int = 170,
+        height: int = 64,
+        command=None,
+    ):
+        super().__init__(parent)
+        self.from_ = int(from_)
+        self.to = int(to)
+        self.command = command
+        self._pad = 10
+        self._track_y = 24
+        self._handle_r = 6
+        self.value = int(max(self.from_, min(value, self.to)))
+
+        self.canvas = tk.Canvas(self, width=width, height=height, highlightthickness=0)
+        self.canvas.pack(fill="x", expand=True)
+
+        self.canvas.bind("<Button-1>", self._on_pointer)
+        self.canvas.bind("<B1-Motion>", self._on_pointer)
+        self.canvas.bind("<Configure>", lambda _e: self._draw())
+
+        self._draw()
+
+    def _canvas_width(self) -> int:
+        configured = int(self.canvas.cget("width"))
+        actual = int(self.canvas.winfo_width())
+        return actual if actual > 2 else configured
+
+    def _value_to_x(self, value: int) -> int:
+        span = max(1, self.to - self.from_)
+        width = self._canvas_width()
+        usable = max(1, width - 2 * self._pad)
+        return int(self._pad + ((value - self.from_) / span) * usable)
+
+    def _x_to_value(self, x: int) -> int:
+        width = self._canvas_width()
+        usable = max(1, width - 2 * self._pad)
+        x_clamped = max(self._pad, min(x, width - self._pad))
+        ratio = (x_clamped - self._pad) / usable
+        value = self.from_ + ratio * (self.to - self.from_)
+        return int(round(value))
+
+    def _draw(self):
+        self.canvas.delete("all")
+        width = self._canvas_width()
+        y = self._track_y
+
+        self.canvas.create_line(self._pad, y, width - self._pad, y, fill="#b5b5b5", width=3)
+
+        x_val = self._value_to_x(self.value)
+        self.canvas.create_line(self._pad, y, x_val, y, fill="#1a73e8", width=5)
+
+        r = self._handle_r
+        self.canvas.create_oval(x_val - r, y - r, x_val + r, y + r, fill="#ffffff", outline="#1a73e8", width=2)
+
+        self.canvas.create_text(width // 2, 2, text=str(self.value), fill="#1a73e8", anchor="n")
+
+        value_y = y + 14
+        self.canvas.create_text(self._pad, value_y, text=str(self.from_), anchor="nw", fill="#666666")
+        self.canvas.create_text(width - self._pad, value_y, text=str(self.to), anchor="ne", fill="#666666")
+
+    def _on_pointer(self, event):
+        new_value = self._x_to_value(event.x)
+        if new_value != self.value:
+            self.value = new_value
+            self._draw()
+            if self.command:
+                self.command(self.value)
+
+    def get(self) -> int:
+        return int(self.value)
+
+    def set(self, value: int):
+        self.value = int(max(self.from_, min(value, self.to)))
+        self._draw()
+
 class PackingGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -27,6 +235,7 @@ class PackingGUI:
         self.root.state('zoomed')
 
         # fonts
+        self.font_h1 = ("Segoe UI", 16, "bold")
         self.font_h2 = ("Segoe UI", 12, "bold")
         self.font = ("Segoe UI", 10)
 
@@ -39,7 +248,6 @@ class PackingGUI:
         # per-step metadata
         self._step_new_keys = None           # list[set], same length as self._solutions
         self._step_change_types = None       # list[dict], maps rect_id -> 'box_changed' or 'position_only'
-
         # state
         self.rectangles = []
         self.algorithm = None
@@ -96,7 +304,7 @@ class PackingGUI:
         box_len_final = getattr(final_sol, "box_length", None)
         if not boxes_final or not box_len_final:
             return
-
+            table_frame.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
         c = self.solution_canvas
         w = max(c.winfo_width(), 1)
         cols, cell_size, scale = self._compute_layout_from_count_and_box_len(
@@ -126,45 +334,60 @@ class PackingGUI:
     def _build_left_side(self):
         left = ttk.Frame(self.root, padding=(12, 12, 12, 12))
         left.grid(row=0, column=0, sticky="nsew")
-        left.rowconfigure(1, weight=1)
+        left.rowconfigure(2, weight=1)
         left.columnconfigure(0, weight=1)
 
+        ttk.Label(left, text="1. Generate Rectangles", font=self.font_h1).grid(
+            row=0, column=0, sticky="w", pady=(0, 8)
+        )
+
         # Controls row
-        controls = ttk.LabelFrame(left, text="Generate Rectangles", padding=10)
-        controls.grid(row=0, column=0, sticky="ew")
+        controls = ttk.LabelFrame(left, text="", padding=10)
+        controls.grid(row=1, column=0, sticky="ew")
         for i in range(10):
             controls.columnconfigure(i, weight=1)
 
         # USER INPUTS FOR PROBLEM GENERATION
-        # box_length
+        # box_length (single-value slider: 1..25, default 10)
         ttk.Label(controls, text="Box length:", font=self.font).grid(row=0, column=0, sticky="w")
-        self.in_box_length = ttk.Spinbox(controls, from_=1, to=10000, width=8)
-        self.in_box_length.set(10)
+        self.in_box_length = ValueSlider(
+            controls,
+            from_=1,
+            to=25,
+            value=10,
+            width=170,
+        )
         self.in_box_length.grid(row=0, column=1, padx=(4, 12), sticky="w")
 
         # rectangle_count
-        ttk.Label(controls, text="Rectangle count:", font=self.font).grid(row=0, column=2, sticky="w")
+        ttk.Label(controls, text="Rectangle count:", font=self.font).grid(row=1, column=0, sticky="w")
         self.in_rect_count = ttk.Spinbox(controls, from_=1, to=10000, width=8)
         self.in_rect_count.set(10)
-        self.in_rect_count.grid(row=0, column=3, padx=(4, 12), sticky="w")
+        self.in_rect_count.grid(row=1, column=1, padx=(4, 12), sticky="w")
 
-        # rectangle width min / max
-        ttk.Label(controls, text="Width min/max:", font=self.font).grid(row=0, column=4, sticky="w")
-        self.in_min_width = ttk.Spinbox(controls, from_=1, to=10000, width=6)
-        self.in_min_width.set(1)
-        self.in_min_width.grid(row=0, column=5, padx=4, sticky="w")
-        self.in_max_width = ttk.Spinbox(controls, from_=1, to=10000, width=6)
-        self.in_max_width.set(5)
-        self.in_max_width.grid(row=0, column=6, padx=(4, 12), sticky="w")
+        # rectangle length min / max (single range slider)
+        ttk.Label(controls, text="Length min/max:", font=self.font).grid(row=0, column=4, sticky="w")
+        self.in_length_range = RangeSlider(
+            controls,
+            from_=1,
+            to=25,
+            min_value=1,
+            max_value=5,
+            width=170,
+        )
+        self.in_length_range.grid(row=0, column=5, columnspan=2, padx=(4, 12), sticky="w")
 
-        # rectangle height min / max
+        # rectangle height min / max (single range slider)
         ttk.Label(controls, text="Height min/max:", font=self.font).grid(row=1, column=4, sticky="w")
-        self.in_min_height = ttk.Spinbox(controls, from_=1, to=10000, width=6)
-        self.in_min_height.set(1)
-        self.in_min_height.grid(row=1, column=5, padx=4, sticky="w")
-        self.in_max_height = ttk.Spinbox(controls, from_=1, to=10000, width=6)
-        self.in_max_height.set(5)
-        self.in_max_height.grid(row=1, column=6, padx=(4, 12), sticky="w")
+        self.in_height_range = RangeSlider(
+            controls,
+            from_=1,
+            to=25,
+            min_value=1,
+            max_value=5,
+            width=170,
+        )
+        self.in_height_range.grid(row=1, column=5, columnspan=2, padx=(4, 12), sticky="w")
 
         ttk.Button(controls, text="Generate", command=self._on_generate).grid(
             row=0, column=9, rowspan=2, sticky="e"
@@ -172,7 +395,7 @@ class PackingGUI:
 
         # Table of Rects
         table_frame = ttk.Frame(left)
-        table_frame.grid(row=1, column=0, sticky="nsew", pady=(12, 0))
+        table_frame.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
         table_frame.rowconfigure(0, weight=1)
         table_frame.columnconfigure(0, weight=1)
 
@@ -195,10 +418,8 @@ class PackingGUI:
         try:
             box_length = int(self.in_box_length.get())
             rect_count = int(self.in_rect_count.get())
-            min_width = int(self.in_min_width.get())
-            max_width = int(self.in_max_width.get())
-            min_height = int(self.in_min_height.get())
-            max_height = int(self.in_max_height.get())
+            min_width, max_width = self.in_length_range.get()
+            min_height, max_height = self.in_height_range.get()
 
             if min_width > max_width:
                 raise ValueError("Width min must be ≤ max.")
@@ -236,11 +457,15 @@ class PackingGUI:
     def _build_strategy_frame(self):
         self.strategy_wrapper = ttk.Frame(self.root, padding=(12, 12, 12, 12))
         self.strategy_wrapper.grid(row=0, column=1, sticky="nsew")
-        self.strategy_wrapper.rowconfigure(0, weight=0)
+        self.strategy_wrapper.rowconfigure(1, weight=0)
         self.strategy_wrapper.columnconfigure(0, weight=1)
 
-        self.strategy_frame = ttk.LabelFrame(self.strategy_wrapper, text="Choose Strategy", padding=(16, 12))
-        self.strategy_frame.grid(row=0, column=0, sticky="new")
+        ttk.Label(self.strategy_wrapper, text="2. Select Algorithm", font=self.font_h1).grid(
+            row=0, column=0, sticky="w", pady=(0, 8)
+        )
+
+        self.strategy_frame = ttk.LabelFrame(self.strategy_wrapper, text="", padding=(16, 12))
+        self.strategy_frame.grid(row=1, column=0, sticky="new")
         self.strategy_frame.grid_propagate(False)
 
         self._render_primary_options()
@@ -260,9 +485,6 @@ class PackingGUI:
 
     def _render_primary_options(self):
         self._clear_strategy_frame()
-        title = ttk.Label(self.strategy_frame, text="Select an Algorithm", font=self.font_h2)
-        title.grid(row=0, column=0, sticky="w", pady=(0, 8))
-
         options = [
             ("Greedy - Largest-Area First", "Greedy - Largest-Area First"),
             ("Greedy - Longest-Side First", "Greedy - Longest-Side First"),
@@ -275,7 +497,7 @@ class PackingGUI:
         
         disabled = self.problem is None
         
-        for idx, (label, value) in enumerate(options, start=1):
+        for idx, (label, value) in enumerate(options, start=0):
             rb = ttk.Radiobutton(
                 self.strategy_frame,
                 text=label,
